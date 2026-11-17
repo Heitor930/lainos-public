@@ -1,0 +1,242 @@
+# ‡ LainOS — monta a ISO, testa numa máquina virtual e publica.
+#
+# Roda sozinho a cada envio para a branch main (e em tags v*). Também dá para
+# rodar na mão: aba Actions > "Montar a ISO" > Run workflow.
+#
+# O que acontece:
+#   1. testes rápidos (scripts, Python, instalador num disco de teste, telas)
+#   2. monta a ISO num contêiner Arch Linux (30 a 60 minutos)
+#   3. inicia a ISO numa máquina virtual, instala num disco virtual, inicia o
+#      disco instalado e cria uma conta pelo primeiro início; tira fotos de tudo
+#   4. publica a ISO em Releases (pré-lançamento se o teste da etapa 3 falhar)
+name: Montar a ISO
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths-ignore: ["**.md", "docs/**"]
+  workflow_dispatch:
+    inputs:
+      rapido:
+        description: "Compressão leve (build mais rápido, ISO maior)"
+        type: boolean
+        default: false
+      testar_vm:
+        description: "Testar a ISO numa máquina virtual antes de publicar"
+        type: boolean
+        default: true
+      publicar:
+        description: "Publicar a ISO em Releases"
+        type: boolean
+        default: true
+
+concurrency:
+  group: build-iso-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  testes:
+    name: Testes rápidos
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ferramentas de teste
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends shellcheck zsh xvfb imagemagick \
+            python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 rsync dosfstools e2fsprogs fdisk util-linux sudo
+      - name: Rodar os testes
+        run: sudo env "PATH=$PATH" bash tests/run.sh
+      - name: Guardar as capturas de tela
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capturas-dos-testes
+          path: tests/out/gui/*.png
+          if-no-files-found: ignore
+          retention-days: 14
+
+  iso:
+    name: Montar a ISO
+    needs: testes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    outputs:
+      nome: ${{ steps.final.outputs.nome }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Liberar espaço em disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost /usr/share/swift /usr/local/.ghcup || true
+          sudo docker image prune --all --force >/dev/null || true
+          df -h / /mnt
+      - name: Montar a ISO (contêiner Arch Linux)
+        env:
+          RAPIDO: ${{ inputs.rapido && '--fast' || '' }}
+        run: |
+          # a pasta de trabalho vai para o disco com mais espaço livre
+          work=/mnt/lainos-work
+          if (( $(df -Pk /mnt | awk 'NR==2{print $4}') < $(df -Pk / | awk 'NR==2{print $4}') )); then
+            work="$RUNNER_TEMP/lainos-work"
+          fi
+          sudo mkdir -p "$work" out
+          docker run --rm --privileged \
+            -v "$PWD":/src:ro -v "$PWD/out":/out -v "$work":/work \
+            -e HOST_UID="$(id -u)" -e HOST_GID="$(id -g)" \
+            archlinux:latest bash /src/build.sh --in-container -o /out -w /work $RAPIDO
+          sudo rm -rf "$work"
+      - name: Conferir o resultado
+        id: final
+        run: |
+          iso=$(ls out/lainos-*.iso | head -n1)
+          test -s "$iso" && test -s "$iso.sha256"
+          (cd out && sha256sum -c "$(basename "$iso").sha256")
+          echo "nome=$(basename "$iso")" >>"$GITHUB_OUTPUT"
+          {
+            echo "### ISO pronta"
+            echo
+            echo "- Arquivo: \`$(basename "$iso")\` ($(du -h "$iso" | cut -f1))"
+            echo "- SHA-256: \`$(cut -d' ' -f1 "$iso.sha256")\`"
+            echo "- Pacotes: $(wc -l < out/packages-resolved.txt)"
+          } >>"$GITHUB_STEP_SUMMARY"
+      - name: Guardar a ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: lainos-iso
+          path: |
+            out/lainos-*.iso
+            out/lainos-*.iso.sha256
+            out/packages-resolved.txt
+          compression-level: 0
+          retention-days: 14
+
+  vm:
+    name: Testar numa máquina virtual
+    needs: iso
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.testar_vm }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: lainos-iso
+          path: out
+      - name: Ligar o KVM e instalar o QEMU
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' |
+            sudo tee /etc/udev/rules.d/99-kvm4all.rules >/dev/null
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm || true
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends qemu-system-x86 qemu-utils ovmf \
+            libarchive-tools imagemagick
+          ls -l /dev/kvm || echo "sem KVM: o teste vai ser bem mais lento"
+      - name: Sessão ao vivo e instalação
+        id: live
+        run: |
+          sudo python3 tests/ci/vmtest.py live "out/${{ needs.iso.outputs.nome }}" "$RUNNER_TEMP/disco.img" vm
+      - name: Primeiro início do sistema instalado
+        id: installed
+        if: ${{ steps.live.outcome == 'success' }}
+        run: sudo python3 tests/ci/vmtest.py installed "$RUNNER_TEMP/disco.img" vm
+      - name: Menus de boot da ISO (BIOS e UEFI)
+        if: always()
+        continue-on-error: true
+        run: sudo python3 tests/ci/vmtest.py menus "out/${{ needs.iso.outputs.nome }}" vm
+      - name: Resumo
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" vm || true
+          cat vm/resumo.md >>"$GITHUB_STEP_SUMMARY" 2>/dev/null || echo "sem resumo" >>"$GITHUB_STEP_SUMMARY"
+      - name: Guardar fotos e registros
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: teste-na-maquina-virtual
+          path: |
+            vm/*.png
+            vm/*.log
+            vm/*.md
+            vm/*.txt
+          if-no-files-found: ignore
+          retention-days: 30
+
+  publicar:
+    name: Publicar em Releases
+    needs: [iso, vm]
+    if: >-
+      ${{ always() && needs.iso.result == 'success' &&
+          (github.event_name != 'workflow_dispatch' || inputs.publicar) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: lainos-iso
+          path: out
+      - uses: actions/download-artifact@v4
+        if: ${{ needs.vm.result != 'skipped' }}
+        continue-on-error: true
+        with:
+          name: teste-na-maquina-virtual
+          path: vm
+      - name: Criar o lançamento
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VM_RESULT: ${{ needs.vm.result }}
+        run: |
+          set -euo pipefail
+          cd out
+          iso=$(ls lainos-*.iso | head -n1)
+          version=${iso#lainos-}; version=${version%-x86_64.iso}
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            tag=${GITHUB_REF#refs/tags/}
+          else
+            tag="v${version}-${GITHUB_RUN_NUMBER}"
+            # rodou de novo a mesma execução: não colide com o lançamento anterior
+            if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              tag="$tag.$GITHUB_RUN_ATTEMPT"
+            fi
+          fi
+          assets=("$iso.sha256" packages-resolved.txt)
+          # O GitHub aceita arquivos de até 2 GiB por lançamento: uma ISO maior vai em partes.
+          size=$(stat -c %s "$iso")
+          if (( size >= 2000 * 1024 * 1024 )); then
+            split -b 1900M -d -a 1 "$iso" "$iso.part"
+            assets+=("$iso".part*)
+            juntar="A ISO passou de 2 GB e foi dividida em partes. Baixe todas e junte:
+          - Linux/macOS: \`cat $iso.part* > $iso\`
+          - Windows (Prompt de Comando): \`copy /b $iso.part0 + $iso.part1 $iso\` (inclua todas as partes, em ordem)
+
+          "
+          else
+            assets+=("$iso")
+            juntar=""
+          fi
+          case $VM_RESULT in
+            success) vm="✅ Testada numa máquina virtual: iniciou, instalou num disco virtual e criou a conta no primeiro início." ;;
+            skipped) vm="O teste em máquina virtual não rodou nesta versão." ;;
+            *)       vm="⚠️ O teste em máquina virtual não passou por inteiro: veja o resumo e as fotos na execução do Actions antes de instalar num computador de verdade." ;;
+          esac
+          prerelease=()
+          [[ $VM_RESULT == success || $VM_RESULT == skipped ]] || prerelease=(--prerelease)
+          cat > notes.md <<NOTES
+          ${juntar}${vm}
+
+          **SHA-256:** \`$(cut -d' ' -f1 "$iso.sha256")\`
+
+          Como usar: grave a ISO num pendrive (Rufus no modo DD, balenaEtcher ou Ventoy), inicie o computador por ele e clique em **Instalar o LainOS**. A instalação **apaga o disco escolhido inteiro**. Senha da sessão ao vivo: \`live\`. Usuário e senha do sistema instalado são criados no primeiro início.
+
+          Detalhes da execução: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          NOTES
+          sed -i 's/^          //' notes.md
+          gh release create "$tag" "${assets[@]}" --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" --title "LainOS $version" --notes-file notes.md "${prerelease[@]}"
+          echo "### Publicado: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/$tag" >>"$GITHUB_STEP_SUMMARY"

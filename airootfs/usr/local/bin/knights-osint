@@ -1,0 +1,4 @@
+#!/bin/sh
+# ‡ Knights OSINT
+export PYTHONPATH="/usr/lib/lainos${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m knights "$@"

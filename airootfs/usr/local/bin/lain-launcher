@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# ‡ LainOS — lançador de aplicativos.
+# Uso: lain-launcher        busca rápida (rofi)
+#      lain-launcher grid   grade de aplicativos em tela cheia (nwg-drawer)
+set -u
+
+if [[ ${1:-} == grid ]] && command -v nwg-drawer >/dev/null 2>&1; then
+    # se já estiver aberta, o clique fecha
+    if pkill -x nwg-drawer 2>/dev/null; then exit 0; fi
+    nwg-drawer -term kitty -c 6 -is 56 -ovl
+    rc=$?
+    # código 2 = opção desconhecida nesta versão: abre com o padrão
+    [[ $rc -eq 2 ]] && nwg-drawer
+    exit 0
+fi
+
+pkill -x rofi 2>/dev/null && exit 0
+exec rofi -show drun

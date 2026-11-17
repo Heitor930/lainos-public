@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# ‡ LainOS — proxy Tor do sistema.
+#
+# Liga o serviço Tor e aponta o proxy do sistema (gsettings) para ele. Vale
+# para o Firefox, apps GTK e para os terminais abertos depois de ligar.
+# Programas que ignoram o proxy do sistema continuam saindo direto: isto NÃO
+# é um túnel total. Para anonimato de verdade use o Tor Browser, e para um
+# comando específico use `px comando` (proxychains).
+#
+# Uso: lain-proxy [on|off|toggle|status|check|sync|waybar]
+set -u
+
+SOCKS_HOST=127.0.0.1
+SOCKS_PORT=9050
+envfile="${XDG_RUNTIME_DIR:-/tmp}/lainos-proxy.env"
+
+notify() { notify-send -a LainOS -i lainos "$1" "${2:-}" 2>/dev/null || true; }
+refresh_bar() { pkill -RTMIN+8 -x waybar 2>/dev/null || true; }
+
+tor_active() { systemctl is-active --quiet tor.service; }
+# O sudoers da distro libera ligar/desligar o Tor sem senha para o grupo wheel;
+# se não valer (outro usuário), cai no pedido de senha normal do sistema.
+start_tor() { sudo -n /usr/bin/systemctl start tor.service 2>/dev/null || systemctl start tor.service; }
+port_open() { (exec 3<>"/dev/tcp/$SOCKS_HOST/$SOCKS_PORT") 2>/dev/null; }
+gs_mode() { gsettings get org.gnome.system.proxy mode 2>/dev/null | tr -d "'"; }
+
+is_on() {
+    [[ $(gs_mode) == manual ]] || return 1
+    [[ $(gsettings get org.gnome.system.proxy.socks port 2>/dev/null) == "$SOCKS_PORT" ]] || return 1
+    tor_active
+}
+
+write_env() {
+    cat >"$envfile" <<ENV
+export ALL_PROXY="socks5h://$SOCKS_HOST:$SOCKS_PORT"
+export all_proxy="socks5h://$SOCKS_HOST:$SOCKS_PORT"
+export HTTPS_PROXY="socks5h://$SOCKS_HOST:$SOCKS_PORT"
+export HTTP_PROXY="socks5h://$SOCKS_HOST:$SOCKS_PORT"
+export NO_PROXY="localhost,127.0.0.1,::1"
+ENV
+}
+
+set_system_proxy() {
+    gsettings set org.gnome.system.proxy.socks host "$SOCKS_HOST"
+    gsettings set org.gnome.system.proxy.socks port "$SOCKS_PORT"
+    gsettings set org.gnome.system.proxy.http host ''
+    gsettings set org.gnome.system.proxy.https host ''
+    gsettings set org.gnome.system.proxy mode 'manual'
+}
+
+turn_on() {
+    if ! tor_active; then
+        start_tor || { notify "Proxy Tor" "Não consegui iniciar o serviço Tor."; return 1; }
+    fi
+    for _ in $(seq 1 40); do port_open && break; sleep 0.5; done
+    if ! port_open; then
+        notify "Proxy Tor" "O Tor não abriu a porta $SOCKS_PORT. Veja: journalctl -u tor"
+        return 1
+    fi
+    set_system_proxy
+    write_env
+    refresh_bar
+    notify "Proxy Tor ligado" "Firefox, apps GTK e novos terminais saem pelo Tor. Não é um túnel total."
+    # confere o circuito em segundo plano e avisa o IP de saída
+    (
+        ip=$(curl -s --max-time 40 --socks5-hostname "$SOCKS_HOST:$SOCKS_PORT" https://check.torproject.org/api/ip | jq -r 'select(.IsTor == true) | .IP' 2>/dev/null)
+        [[ -n $ip ]] && notify "Circuito Tor pronto" "IP de saída: $ip"
+    ) &
+    disown
+}
+
+turn_off() {
+    gsettings set org.gnome.system.proxy mode 'none' 2>/dev/null || true
+    rm -f "$envfile"
+    sudo -n /usr/bin/systemctl stop tor.service 2>/dev/null || systemctl stop tor.service 2>/dev/null || true
+    refresh_bar
+    notify "Proxy Tor desligado" "Conexão direta. Terminais já abertos mantêm o proxy até serem fechados."
+}
+
+case ${1:-status} in
+    on) turn_on ;;
+    off) turn_off ;;
+    toggle) if is_on; then turn_off; else turn_on; fi ;;
+    status) if is_on; then echo on; else echo off; fi ;;
+    check)
+        curl -s --max-time 40 --socks5-hostname "$SOCKS_HOST:$SOCKS_PORT" https://check.torproject.org/api/ip || {
+            echo "sem resposta pelo Tor" >&2
+            exit 1
+        }
+        echo
+        ;;
+    sync)
+        # no login: se o gsettings ficou em "manual" mas o Tor não está rodando,
+        # volta para conexão direta em vez de deixar o navegador sem rede
+        if [[ $(gs_mode) == manual ]] && [[ $(gsettings get org.gnome.system.proxy.socks port 2>/dev/null) == "$SOCKS_PORT" ]]; then
+            if tor_active; then write_env; else gsettings set org.gnome.system.proxy mode 'none'; rm -f "$envfile"; fi
+        fi
+        ;;
+    waybar)
+        if is_on; then
+            jq -cn '{text: "\uf21b  tor", class: "on", tooltip: "Proxy Tor ligado\nFirefox, apps GTK e novos terminais saem pelo Tor.\nClique para desligar."}'
+        else
+            jq -cn '{text: "\uf21b", class: "off", tooltip: "Proxy Tor desligado\nClique para rotear o sistema pelo Tor (SUPER + SHIFT + T)."}'
+        fi
+        ;;
+    *) echo "uso: lain-proxy [on|off|toggle|status|check|sync|waybar]" >&2; exit 2 ;;
+esac

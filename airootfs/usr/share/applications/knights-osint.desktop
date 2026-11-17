@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Knights OSINT
+Comment=Reconhecimento de fontes abertas: nome de usuário, domínio, IP e metadados
+Exec=knights-osint
+Icon=knights-osint
+Terminal=false
+Categories=Network;Security;Utility;
+Keywords=osint;recon;username;whois;dns;metadata;exif;seguranca;
+StartupNotify=true

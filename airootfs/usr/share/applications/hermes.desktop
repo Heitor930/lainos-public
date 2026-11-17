@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Hermes Agent
+Comment=Seu agente de IA pessoal (Nous Research)
+Exec=kitty --class hermes -e hermes
+Icon=utilities-terminal
+Terminal=false
+Categories=Utility;Development;
+Keywords=ia;ai;agente;assistente;hermes;
+StartupNotify=true

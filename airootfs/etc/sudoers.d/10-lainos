@@ -1,0 +1,10 @@
+# ‡ LainOS — quem administra o computador é o grupo wheel (com senha).
+%wheel ALL=(ALL:ALL) ALL
+
+# lain-proxy liga/desliga o Tor sem pedir senha toda hora (conveniência da sessão)
+%wheel ALL=(root) NOPASSWD: /usr/bin/systemctl start tor.service, /usr/bin/systemctl stop tor.service
+
+# Primeiro início: a tela de login (usuário "greeter") pode chamar SOMENTE estas
+# duas formas do programa que cria a conta. Ele mesmo se recusa a funcionar
+# depois que a conta existe (some a marca /var/lib/lainos/firstboot).
+greeter ALL=(root) NOPASSWD: /usr/lib/lainos/firstboot-apply system, /usr/lib/lainos/firstboot-apply account

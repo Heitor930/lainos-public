@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# pacman de mentira: deixa o build.sh conferir a lista de pacotes sem internet.
+# O "repositório" é o arquivo indicado por FAKE_REPO (um nome por linha).
+args=" $* "
+if [[ -n ${FAKE_PACMAN_LOG:-} ]]; then printf '%s\n' "$*" >>"$FAKE_PACMAN_LOG"; fi
+case "$args" in
+    *" -Slq "*) grep -vE '^\s*(#|$)' "$FAKE_REPO" ;;
+    *" -Sgq "*) echo base-devel ;;
+    *" -Sp "*)  grep -qxF -- "${!#}" "${FAKE_PROVIDES:-/dev/null}" ;;
+    *" -Qq archiso "*) exit 0 ;;
+    *" -Q archiso "*) echo "archiso 92-1" ;;
+    *) exit 0 ;;
+esac

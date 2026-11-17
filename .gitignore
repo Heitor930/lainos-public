@@ -1,0 +1,9 @@
+# saída do build
+/out/
+/work/
+*.iso
+*.iso.sha256
+# testes
+/tests/out/
+__pycache__/
+*.pyc

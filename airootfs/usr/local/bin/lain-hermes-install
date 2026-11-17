@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# ‡ LainOS — baixa o Hermes Agent com o instalador oficial, sem configurar.
+# Uso: lain-hermes-install [--quiet]   (--quiet: sem saída no terminal, só notificações)
+set -u
+
+URL="https://hermes-agent.nousresearch.com/install.sh"
+quiet=0
+[[ ${1:-} == --quiet ]] && quiet=1
+
+notify() { notify-send -a "Hermes Agent" -i lainos "$1" "${2:-}" 2>/dev/null || true; }
+
+for candidate in "$HOME/.local/bin/hermes" "$HOME/.hermes/hermes-agent/.hermes/bin/hermes"; do
+    if [[ -x $candidate && $(readlink -f "$candidate") != /usr/local/bin/hermes ]]; then
+        [[ $quiet == 1 ]] || echo "  O Hermes já está instalado: $candidate"
+        exit 0
+    fi
+done
+
+# uma instalação por vez
+lock="${XDG_RUNTIME_DIR:-/tmp}/lainos-hermes-install.lock"
+exec 9>"$lock"
+if ! flock -n 9; then
+    [[ $quiet == 1 ]] || echo "  Já existe uma instalação do Hermes em andamento."
+    exit 0
+fi
+
+tmp=$(mktemp --suffix=.sh)
+trap 'rm -f "$tmp"' EXIT
+
+if ! curl -fsSL --max-time 60 "$URL" -o "$tmp"; then
+    [[ $quiet == 1 ]] || echo "  Sem acesso a $URL. Confira a internet e tente de novo." >&2
+    exit 1
+fi
+
+# --skip-setup: nada de perguntas agora; a configuração é com `hermes setup`.
+# --skip-browser/--skip-computer-use: deixa o download leve. Para ativar depois:
+#   hermes pm install chromium     e     hermes pm install cua-driver
+args=(--skip-setup --skip-browser --skip-computer-use)
+
+if [[ $quiet == 1 ]]; then
+    notify "Baixando o Hermes Agent" "Em segundo plano. Aviso quando estiver pronto."
+    log="${XDG_CACHE_HOME:-$HOME/.cache}/lainos-hermes-install.log"
+    if bash "$tmp" "${args[@]}" >"$log" 2>&1 </dev/null; then
+        notify "Hermes Agent pronto" "Abra pelo menu ou com SUPER + H para configurar."
+    else
+        notify "Hermes Agent não foi instalado" "Rode \`hermes\` num terminal para tentar de novo. Log: $log"
+        exit 1
+    fi
+else
+    bash "$tmp" "${args[@]}"
+fi

@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=LainOS
+Description=Emblema da LainOS sobre preto, com um pulso suave
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/lainos
+ScriptFile=/usr/share/plymouth/themes/lainos/lainos.script

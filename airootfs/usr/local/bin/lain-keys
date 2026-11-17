@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# ‡ LainOS — cola de atalhos na tela (SUPER + F1).
+set -u
+pkill -x rofi 2>/dev/null && exit 0
+rofi -dmenu -i -p "atalhos" -mesg "Digite para filtrar. Esc fecha." \
+    -theme-str 'window { width: 720px; } listview { lines: 14; } element-text { font: "JetBrainsMono Nerd Font 10"; }' \
+    </usr/share/lainos/keybinds.txt >/dev/null
+exit 0

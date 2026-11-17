@@ -1,0 +1,7 @@
+# Tudo em texto com fim de linha do Linux, mesmo num checkout feito no Windows
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.png binary
+*.jpg binary
+*.gz binary
+*.iso binary

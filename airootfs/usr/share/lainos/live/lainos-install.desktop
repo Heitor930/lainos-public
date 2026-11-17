@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Instalar o LainOS
+Comment=Apaga o disco inteiro e instala o LainOS (só na versão ao vivo)
+Exec=lain-install
+Icon=lainos
+Terminal=false
+Categories=System;
+NoDisplay=false
+StartupNotify=true

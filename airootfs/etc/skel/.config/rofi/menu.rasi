@@ -1,0 +1,15 @@
+/* Menus curtos (energia, VPN): sem campo de busca */
+@import "lainos"
+
+window {
+    width: 340px;
+}
+mainbox {
+    children: [ message, listview ];
+}
+listview {
+    lines: 6;
+}
+element-text {
+    font: "Inter 12";
+}

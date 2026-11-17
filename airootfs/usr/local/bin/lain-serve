@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# ‡ LainOS — sobe um servidor web na pasta atual em um comando.
+# Uso: lain-serve [PASTA] [PORTA]      (padrão: pasta atual, porta 8080)
+# Para um servidor de verdade (Docker, Caddy com HTTPS, painel web), instale o
+# pacote "Servidor próprio" no app de boas-vindas.
+set -u
+
+dir=${1:-.}
+port=${2:-8080}
+[[ -d $dir ]] || { echo "pasta não encontrada: $dir" >&2; exit 1; }
+
+ip=$(ip -4 -o route get 1.1.1.1 2>/dev/null | sed -n 's/.* src \([0-9.]*\).*/\1/p')
+echo
+echo "  ‡ servindo $(readlink -f "$dir")"
+echo "    neste computador:  http://localhost:$port"
+[[ -n $ip ]] && echo "    na rede local:     http://$ip:$port"
+if command -v ufw >/dev/null 2>&1 && systemctl is-active --quiet ufw; then
+    echo "    o firewall bloqueia acesso de outras máquinas. Para liberar:"
+    echo "      sudo ufw allow $port/tcp"
+fi
+echo "    Ctrl+C para parar"
+echo
+
+if command -v caddy >/dev/null 2>&1; then
+    exec caddy file-server --root "$dir" --listen ":$port" --browse
+fi
+exec python3 -m http.server "$port" --directory "$dir"

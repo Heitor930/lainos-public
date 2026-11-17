@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# ‡ LainOS — troque as imagens do sistema pelas suas.
+#
+#   lain-style wallpaper ARQUIVO       papel de parede
+#   lain-style lock ARQUIVO            fundo da tela de bloqueio
+#   lain-style login ARQUIVO           fundo da tela de login (pede senha)
+#   lain-style terminal-art ARQUIVO    imagem ao abrir o terminal (no lugar da arte em texto)
+#   lain-style terminal-art --reset    volta para a arte em texto
+#   lain-style reset                   volta tudo ao padrão da distro
+#   lain-style reload                  recarrega barra, dock e notificações
+#
+# As imagens são suas: a distro não traz nenhuma arte de terceiros.
+set -u
+
+confdir="$HOME/.config/lainos"
+conf="$confdir/style.conf"
+datadir="$HOME/.local/share/lainos"
+mkdir -p "$confdir" "$datadir"
+touch "$conf"
+
+setkey() {
+    local key=$1 value=$2 escaped
+    escaped=${value//\\/\\\\}
+    escaped=${escaped//&/\\&}
+    escaped=${escaped//|/\\|}
+    if grep -q "^$key=" "$conf"; then
+        sed -i "s|^$key=.*|$key=\"$escaped\"|" "$conf"
+    else
+        echo "$key=\"$value\"" >>"$conf"
+    fi
+}
+
+need_file() {
+    [[ -r ${1:-} ]] || { echo "arquivo não encontrado: ${1:-}" >&2; exit 1; }
+}
+
+# convert ORIGEM DESTINO LARGURA_MAX ALTURA_MAX  -> imprime "largura altura" finais
+convert() {
+    python3 - "$@" <<'PY'
+import sys
+from PIL import Image, ImageOps
+src, dst, max_w, max_h = sys.argv[1], sys.argv[2], int(sys.argv[3]), int(sys.argv[4])
+img = ImageOps.exif_transpose(Image.open(src))
+img.thumbnail((max_w, max_h), Image.LANCZOS)
+if dst.lower().endswith((".jpg", ".jpeg")):
+    img.convert("RGB").save(dst, quality=92)
+else:
+    img.convert("RGBA").save(dst)
+print(img.width, img.height)
+PY
+}
+
+case ${1:-} in
+    wallpaper)
+        need_file "${2:-}"
+        lain-wallpaper set "$2"
+        ;;
+    lock)
+        need_file "${2:-}"
+        convert "$2" "$datadir/lock.jpg" 3840 2160 >/dev/null || exit 1
+        # shellcheck disable=SC2016  # o $lockbg é texto do arquivo do Hyprland, não uma variável daqui
+        printf '# Gerado por `lain-style lock`.\n$lockbg = %s\n' "$datadir/lock.jpg" >"$HOME/.config/hypr/lock-bg.conf"
+        echo "tela de bloqueio atualizada (teste com SUPER + L)"
+        ;;
+    login)
+        need_file "${2:-}"
+        tmp=$(mktemp --suffix=.jpg)
+        convert "$2" "$tmp" 3840 2160 >/dev/null || exit 1
+        chmod 644 "$tmp"
+        pkexec install -Dm644 "$tmp" /var/lib/lainos/login.jpg && echo "tela de login atualizada"
+        rm -f "$tmp"
+        ;;
+    terminal-art)
+        if [[ ${2:-} == --reset ]]; then
+            setkey TERMINAL_ART ""
+            echo "arte em texto restaurada"
+            exit 0
+        fi
+        need_file "${2:-}"
+        read -r w h < <(convert "$2" "$datadir/terminal-art.png" 520 520) || exit 1
+        # uma célula do terminal tem ~2x mais altura que largura
+        rows=16
+        cols=$(( (rows * 2 * w + h / 2) / h ))
+        (( cols > 46 )) && { cols=46; rows=$(( (cols * h + w) / (2 * w) )); }
+        (( rows < 4 )) && rows=4
+        setkey TERMINAL_ART "$datadir/terminal-art.png"
+        setkey TERMINAL_ART_COLS "$cols"
+        setkey TERMINAL_ART_ROWS "$rows"
+        echo "pronto: abra um terminal novo (ou rode lain-fetch)"
+        ;;
+    reset)
+        setkey TERMINAL_ART ""
+        # shellcheck disable=SC2016  # o $lockbg é texto do arquivo do Hyprland, não uma variável daqui
+        printf '# Gerado por `lain-style lock`.\n$lockbg = %s\n' /usr/share/lainos/wallpapers/01-wired-dusk.jpg >"$HOME/.config/hypr/lock-bg.conf"
+        lain-wallpaper set /usr/share/lainos/wallpapers/01-wired-dusk.jpg
+        echo "visual padrão restaurado (a tela de login não muda: use lain-style login /usr/share/lainos/login.jpg)"
+        ;;
+    reload)
+        pkill -SIGUSR2 -x waybar 2>/dev/null || true
+        swaync-client -rs >/dev/null 2>&1 || true
+        setsid -f lain-dock >/dev/null 2>&1
+        ;;
+    *)
+        sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+        exit 2
+        ;;
+esac

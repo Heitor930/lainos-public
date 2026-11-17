@@ -1,0 +1,28 @@
+# ‡ LainOS — links simbólicos da imagem (caminho dentro do sistema <TAB> destino).
+#
+# Ficam aqui, e não como links de verdade no repositório, porque o Windows e
+# arquivos .zip costumam estragar links simbólicos. O build.sh cria todos eles
+# na cópia de trabalho antes de chamar o mkarchiso.
+
+# serviços ligados na inicialização
+etc/systemd/system/multi-user.target.wants/NetworkManager.service	/usr/lib/systemd/system/NetworkManager.service
+etc/systemd/system/dbus-org.freedesktop.nm-dispatcher.service	/usr/lib/systemd/system/NetworkManager-dispatcher.service
+etc/systemd/system/bluetooth.target.wants/bluetooth.service	/usr/lib/systemd/system/bluetooth.service
+etc/systemd/system/dbus-org.bluez.service	/usr/lib/systemd/system/bluetooth.service
+etc/systemd/system/multi-user.target.wants/power-profiles-daemon.service	/usr/lib/systemd/system/power-profiles-daemon.service
+etc/systemd/system/sysinit.target.wants/systemd-timesyncd.service	/usr/lib/systemd/system/systemd-timesyncd.service
+etc/systemd/system/timers.target.wants/fstrim.timer	/usr/lib/systemd/system/fstrim.timer
+etc/systemd/system/multi-user.target.wants/ufw.service	/usr/lib/systemd/system/ufw.service
+
+# tela de login (greetd) como gerenciador de sessão, direto no modo gráfico
+etc/systemd/system/display-manager.service	/usr/lib/systemd/system/greetd.service
+etc/systemd/system/default.target	/usr/lib/systemd/system/graphical.target
+
+# serviços da própria distro
+etc/systemd/system/multi-user.target.wants/lain-live-setup.service	/etc/systemd/system/lain-live-setup.service
+etc/systemd/system/multi-user.target.wants/lain-live-keyring.service	/etc/systemd/system/lain-live-keyring.service
+etc/systemd/system/multi-user.target.wants/lain-firstboot-console.service	/etc/systemd/system/lain-firstboot-console.service
+
+# padrões do sistema
+etc/localtime	/usr/share/zoneinfo/America/Sao_Paulo
+etc/lsb-release	os-release

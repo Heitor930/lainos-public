@@ -1,0 +1,49 @@
+‡ LainOS — ATALHOS   (SUPER é a tecla Windows/Comando)
+
+— Aplicativos —
+SUPER Enter            terminal (kitty)
+SUPER Espaço          buscar e abrir app
+SUPER A               grade de todos os apps
+SUPER E               gerenciador de arquivos
+SUPER B               navegador (Firefox)
+SUPER SHIFT B         Navi Ghost (navegador pelo Tor)
+SUPER O               Knights OSINT
+SUPER H               Hermes Agent
+SUPER vírgula         boas-vindas / instalação
+
+— Sistema —
+SUPER F1   (ou SUPER /)   esta lista de atalhos
+SUPER Esc             menu de energia (desligar, reiniciar…)
+SUPER L               bloquear a tela
+SUPER N               central de notificações
+SUPER W               trocar o papel de parede
+SUPER SHIFT V         histórico da área de transferência
+SUPER SHIFT P         modo leve (liga/desliga animações e blur)
+SUPER SHIFT T         proxy Tor do sistema (liga/desliga)
+SUPER SHIFT R         recarregar a configuração
+
+— Capturas de tela —
+Print                 selecionar uma área
+SHIFT Print           tela inteira
+SUPER Print           janela atual
+
+— Janelas —
+SUPER Q               fechar
+SUPER F               tela cheia
+SUPER V               soltar / encaixar (flutuar)
+SUPER setas           mudar o foco entre janelas
+SUPER SHIFT setas     mover a janela
+SUPER CTRL setas      redimensionar
+ALT Tab               alternar janelas
+
+— Mouse (segure SUPER) —
+SUPER + arrastar          mover a janela
+SUPER + botão direito     redimensionar
+SUPER + botão do meio     fechar
+(as bordas de qualquer janela também redimensionam ao arrastar)
+
+— Áreas de trabalho (layers) —
+SUPER 1..0            ir para a área 1..10
+SUPER SHIFT 1..0      mandar a janela para a área
+SUPER Tab / SHIFT Tab próxima / anterior
+SUPER S               mostrar/esconder a gaveta

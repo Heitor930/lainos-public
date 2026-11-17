@@ -1,0 +1,58 @@
+/* ‡ LainOS — grade de aplicativos */
+@import url("../lainos/palette.css");
+
+window {
+    background: alpha(@bg0, 0.86);
+    color: @fg;
+    font-family: "Inter", sans-serif;
+}
+
+entry {
+    background: @bg2;
+    color: @fg;
+    border: 1px solid @border_strong;
+    border-radius: 14px;
+    padding: 8px 14px;
+    caret-color: @moss_bright;
+    box-shadow: none;
+}
+entry:focus {
+    border-color: @moss;
+}
+
+button,
+image {
+    background: none;
+    border: none;
+    box-shadow: none;
+}
+
+button {
+    color: @fg_dim;
+    border-radius: 16px;
+    padding: 10px;
+    transition: background 180ms ease;
+}
+button:hover {
+    background: alpha(@fg, 0.08);
+    color: @fg;
+}
+button:focus {
+    background: alpha(@moss, 0.22);
+    color: @fg;
+}
+
+#category-button {
+    margin: 0 8px;
+    padding: 6px 14px;
+    border-radius: 12px;
+}
+#pinned-box {
+    padding-bottom: 8px;
+    border-bottom: 1px solid @border;
+}
+#files-box {
+    padding: 6px;
+    border: 1px solid @border;
+    border-radius: 14px;
+}

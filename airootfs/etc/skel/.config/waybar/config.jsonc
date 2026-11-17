@@ -1,0 +1,173 @@
+// ‡ LainOS — Waybar. Tudo aqui é clicável.
+{
+    "layer": "top",
+    "position": "top",
+    "height": 38,
+    "margin-top": 8,
+    "margin-left": 12,
+    "margin-right": 12,
+    "spacing": 0,
+    "reload_style_on_change": true,
+    "modules-left": [
+        "custom/menu",
+        "hyprland/workspaces",
+        "group/window"
+    ],
+    "modules-center": [
+        "clock"
+    ],
+    "modules-right": [
+        "tray",
+        "custom/proxy",
+        "custom/vpn",
+        "pulseaudio",
+        "battery",
+        "custom/notifications",
+        "custom/power"
+    ],
+    "custom/menu": {
+        "format": "‡",
+        "tooltip-format": "Aplicativos (SUPER + A)\nBotão direito: boas-vindas",
+        "on-click": "lain-launcher grid",
+        "on-click-right": "lainos-welcome"
+    },
+    "hyprland/workspaces": {
+        "format": "{icon}",
+        "format-icons": {
+            "1": "01",
+            "2": "02",
+            "3": "03",
+            "4": "04",
+            "5": "05",
+            "6": "06",
+            "7": "07",
+            "8": "08",
+            "9": "09",
+            "10": "10"
+        },
+        "persistent-workspaces": {
+            "*": 4
+        },
+        "on-scroll-up": "hyprctl dispatch workspace e-1",
+        "on-scroll-down": "hyprctl dispatch workspace e+1",
+        "on-click": "activate"
+    },
+    "group/window": {
+        "orientation": "inherit",
+        "modules": [
+            "custom/win-close",
+            "custom/win-float",
+            "custom/win-full",
+            "hyprland/window"
+        ]
+    },
+    "custom/win-close": {
+        "format": "",
+        "tooltip-format": "Fechar janela (SUPER + Q)",
+        "on-click": "hyprctl dispatch killactive"
+    },
+    "custom/win-float": {
+        "format": "",
+        "tooltip-format": "Soltar / encaixar janela (SUPER + V)",
+        "on-click": "hyprctl dispatch togglefloating"
+    },
+    "custom/win-full": {
+        "format": "",
+        "tooltip-format": "Tela cheia (SUPER + F)",
+        "on-click": "hyprctl dispatch fullscreen 0"
+    },
+    "hyprland/window": {
+        "format": "{title}",
+        "max-length": 46,
+        "separate-outputs": true,
+        "rewrite": {
+            "": "desktop"
+        }
+    },
+    "clock": {
+        "format": "{:%H:%M}",
+        "format-alt": "{:%A, %d de %B  ·  %H:%M}",
+        "tooltip-format": "<tt><small>{calendar}</small></tt>",
+        "calendar": {
+            "mode": "month",
+            "format": {
+                "today": "<span color='#a9bb74'><b>{}</b></span>"
+            }
+        }
+    },
+    "tray": {
+        "icon-size": 16,
+        "spacing": 10
+    },
+    "custom/proxy": {
+        "exec": "lain-proxy waybar",
+        "return-type": "json",
+        "interval": 10,
+        "signal": 8,
+        "on-click": "lain-proxy toggle"
+    },
+    "custom/vpn": {
+        "exec": "lain-vpn waybar",
+        "return-type": "json",
+        "interval": 10,
+        "signal": 9,
+        "on-click": "lain-vpn menu",
+        "on-click-right": "nm-connection-editor"
+    },
+    "pulseaudio": {
+        "format": "{icon}  {volume}%",
+        "format-muted": "  mudo",
+        "format-icons": {
+            "headphone": "",
+            "default": [
+                "",
+                ""
+            ]
+        },
+        "scroll-step": 5,
+        "on-click": "pavucontrol",
+        "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+        "tooltip-format": "{desc}\nRolar: volume  ·  botão direito: mudo"
+    },
+    "battery": {
+        "states": {
+            "warning": 25,
+            "critical": 12
+        },
+        "format": "{icon}  {capacity}%",
+        "format-charging": "  {capacity}%",
+        "format-plugged": "  {capacity}%",
+        "format-icons": [
+            "",
+            "",
+            "",
+            "",
+            ""
+        ],
+        "tooltip-format": "{timeTo}"
+    },
+    "custom/notifications": {
+        "exec": "swaync-client -swb",
+        "return-type": "json",
+        "format": "{icon}",
+        "format-icons": {
+            "notification": "",
+            "none": "",
+            "dnd-notification": "",
+            "dnd-none": "",
+            "inhibited-notification": "",
+            "inhibited-none": "",
+            "dnd-inhibited-notification": "",
+            "dnd-inhibited-none": ""
+        },
+        "tooltip": false,
+        "on-click": "swaync-client -t -sw",
+        "on-click-right": "swaync-client -d -sw",
+        "escape": true
+    },
+    "custom/power": {
+        "format": "",
+        "tooltip-format": "Energia (SUPER + Esc)",
+        "on-click": "lain-powermenu"
+    }
+}

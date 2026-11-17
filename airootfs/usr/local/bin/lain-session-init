@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# ‡ LainOS — ajustes aplicados a cada login na sessão Hyprland.
+set -u
+
+# Tema escuro e fontes para GTK, portais e apps que leem o gsettings
+if command -v gsettings >/dev/null 2>&1; then
+    gs() { gsettings set "$@" 2>/dev/null || true; }
+    gs org.gnome.desktop.interface color-scheme 'prefer-dark'
+    gs org.gnome.desktop.interface gtk-theme 'adw-gtk3-dark'
+    gs org.gnome.desktop.interface icon-theme 'Papirus-Dark'
+    gs org.gnome.desktop.interface cursor-theme 'Adwaita'
+    gs org.gnome.desktop.interface cursor-size 24
+    gs org.gnome.desktop.interface font-name 'Inter 10.5'
+    gs org.gnome.desktop.interface document-font-name 'Inter 10.5'
+    gs org.gnome.desktop.interface monospace-font-name 'JetBrainsMono Nerd Font 10.5'
+    gs org.gnome.desktop.wm.preferences button-layout ':close'
+fi
+
+# Teclado: usa o layout escolhido na instalação, a menos que o usuário tenha
+# fixado outro em ~/.config/hypr/user.conf
+kbconf=/etc/X11/xorg.conf.d/00-keyboard.conf
+if [[ -r $kbconf ]] && ! grep -Eqs '^[[:space:]]*kb_layout[[:space:]]*=' "$HOME/.config/hypr/user.conf"; then
+    layout=$(sed -n 's/.*Option[[:space:]]*"XkbLayout"[[:space:]]*"\([^"]*\)".*/\1/p' "$kbconf" | head -n1)
+    variant=$(sed -n 's/.*Option[[:space:]]*"XkbVariant"[[:space:]]*"\([^"]*\)".*/\1/p' "$kbconf" | head -n1)
+    if [[ -n $layout ]]; then
+        hyprctl keyword input:kb_layout "$layout" >/dev/null 2>&1 || true
+        hyprctl keyword input:kb_variant "${variant:-}" >/dev/null 2>&1 || true
+    fi
+fi
+
+# Pastas pessoais (Documentos, Imagens...) no idioma do sistema
+if command -v xdg-user-dirs-update >/dev/null 2>&1; then xdg-user-dirs-update || true; fi
+pictures=$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Imagens")
+mkdir -p "$pictures/Wallpapers" "$pictures/Capturas" "$HOME/.config/lainos"
+
+# Deixa o indicador de proxy coerente com o estado real do Tor
+if command -v lain-proxy >/dev/null 2>&1; then lain-proxy sync || true; fi
+exit 0

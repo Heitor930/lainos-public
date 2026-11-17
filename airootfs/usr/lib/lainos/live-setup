@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# ‡ LainOS — prepara a sessão AO VIVO (pendrive), a cada início dela.
+#
+# A imagem do sistema é a mesma que vai para o disco na instalação, e por isso
+# não traz nenhum usuário. Quando o computador sobe pelo pendrive, este script
+# cria na memória o usuário temporário "wired" e faz a área de trabalho abrir
+# sozinha. Nada disso é copiado para o disco: o instalador copia a imagem
+# original, e o sistema instalado cria a conta de verdade no primeiro início.
+set -u
+
+[[ -d /run/archiso ]] || exit 0
+
+# Idioma: garante o pt_BR mesmo se a geração na montagem da ISO tiver falhado
+if ! locale -a 2>/dev/null | grep -qiE '^pt_BR\.utf-?8$'; then
+    locale-gen >/dev/null 2>&1 || true
+fi
+
+# Usuário temporário (senha: live), com sudo sem senha só nesta sessão
+if ! id wired >/dev/null 2>&1; then
+    groups=()
+    for group in wheel audio video storage network lp rfkill optical power; do
+        getent group "$group" >/dev/null 2>&1 && groups+=("$group")
+    done
+    shell=/usr/bin/zsh
+    [[ -x $shell ]] || shell=/bin/bash
+    joined=$(IFS=,; echo "${groups[*]}")
+    useradd -m -U -c "LainOS ao vivo" -s "$shell" ${joined:+-G "$joined"} wired
+    echo 'wired:live' | chpasswd
+fi
+install -d -m 0750 /etc/sudoers.d
+printf '%s\n' '# Só na sessão ao vivo: o usuário temporário não precisa digitar senha.' \
+    'wired ALL=(ALL:ALL) NOPASSWD: ALL' >/etc/sudoers.d/99-live
+chmod 0440 /etc/sudoers.d/99-live
+
+# A área de trabalho abre sozinha, sem tela de login
+install -d -m 0755 /etc/greetd
+cat >/etc/greetd/config.toml <<'CONF'
+# ‡ LainOS ao vivo — entra direto na área de trabalho (gerado a cada início)
+[terminal]
+vt = 1
+
+[default_session]
+command = "lain-greeter"
+user = "greeter"
+
+[initial_session]
+command = "lain-start-hyprland"
+user = "wired"
+CONF
+
+# O instalador só aparece no menu da sessão ao vivo
+if [[ -f /usr/share/lainos/live/lainos-install.desktop ]]; then
+    install -Dm644 /usr/share/lainos/live/lainos-install.desktop \
+        /usr/share/applications/lainos-install.desktop
+fi
+
+cat >/etc/issue <<'ISSUE'
+
+  ‡ LainOS ao vivo — stay wired
+
+  Usuário: wired   senha: live
+  A área de trabalho abre sozinha. O instalador está nas boas-vindas.
+
+ISSUE
+
+exit 0

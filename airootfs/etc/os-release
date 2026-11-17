@@ -1,0 +1,12 @@
+PRETTY_NAME="LainOS (Layer 01)"
+NAME="LainOS"
+VERSION_ID="1.0"
+VERSION="1.0 (Layer 01)"
+BUILD_ID="rolling"
+ID=lainos
+ID_LIKE=arch
+ANSI_COLOR="38;2;138;154;91"
+HOME_URL="https://archlinux.org/"
+SUPPORT_URL="https://bbs.archlinux.org/"
+BUG_REPORT_URL="https://gitlab.archlinux.org/archlinux/"
+LOGO=lainos

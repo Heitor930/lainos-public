@@ -1,0 +1,36 @@
+/* ‡ LainOS — dock */
+@import url("../lainos/palette.css");
+
+window {
+    background: alpha(@bg1, 0.80);
+    border: 1px solid alpha(@border_strong, 0.6);
+    border-radius: 20px;
+}
+
+#box {
+    padding: 6px 8px;
+}
+
+button {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    outline: none;
+    border-radius: 14px;
+    padding: 5px;
+    margin: 0 2px;
+    transition: background 180ms ease;
+}
+button:hover {
+    background: alpha(@fg, 0.09);
+}
+button:active {
+    background: alpha(@moss, 0.30);
+}
+button:focus {
+    box-shadow: none;
+}
+
+#active {
+    border-bottom: 2px solid @moss;
+}

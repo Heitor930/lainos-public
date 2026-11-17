@@ -1,0 +1,44 @@
+/* ‡ LainOS — tela de login (ReGreet). Preto, branco e verde-musgo. */
+window {
+    font-family: "Inter", sans-serif;
+    color: #e8eae4;
+}
+
+/* o cartão central com usuário, senha e sessão */
+frame, .background > box > box {
+    border-radius: 18px;
+}
+frame {
+    background-color: alpha(#0d0f0d, 0.90);
+    border: 1px solid alpha(#e8eae4, 0.10);
+    box-shadow: 0 24px 80px alpha(black, 0.6);
+}
+
+entry, combobox button, dropdown button {
+    background-color: alpha(#e8eae4, 0.06);
+    border: 1px solid alpha(#e8eae4, 0.12);
+    border-radius: 10px;
+    color: #e8eae4;
+    min-height: 36px;
+}
+entry:focus-within {
+    border-color: #8a9a5b;
+    outline: none;
+}
+
+button {
+    border-radius: 10px;
+    background-color: alpha(#e8eae4, 0.08);
+    color: #e8eae4;
+    border: none;
+}
+button:hover { background-color: alpha(#e8eae4, 0.14); }
+button.suggested-action {
+    background-color: #8a9a5b;
+    color: #0b0c0b;
+    font-weight: 600;
+}
+button.suggested-action:hover { background-color: #a9bb74; }
+button.destructive-action { background-color: #b5564a; color: #ffffff; }
+
+label { color: #e8eae4; }

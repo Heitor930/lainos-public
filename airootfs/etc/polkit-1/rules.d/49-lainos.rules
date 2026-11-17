@@ -1,0 +1,12 @@
+/* ‡ LainOS — permissões do usuário da sessão ativa, sem pedir senha toda hora */
+polkit.addRule(function(action, subject) {
+    if (subject.local && subject.active && subject.isInGroup("wheel")) {
+        var id = action.id;
+        if (id.indexOf("org.freedesktop.NetworkManager.") === 0 ||
+            id.indexOf("org.freedesktop.udisks2.") === 0 ||
+            id.indexOf("org.freedesktop.ModemManager1.") === 0 ||
+            id === "org.freedesktop.policykit.exec" && false) {
+            return polkit.Result.YES;
+        }
+    }
+});

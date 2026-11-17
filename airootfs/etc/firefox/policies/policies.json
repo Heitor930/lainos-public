@@ -1,0 +1,112 @@
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisablePocket": true,
+    "DisableFeedbackCommands": true,
+    "DontCheckDefaultBrowser": true,
+    "NoDefaultBookmarks": true,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "DisplayBookmarksToolbar": "newtab",
+    "RequestedLocales": ["pt-BR", "en-US"],
+    "HttpsOnlyMode": "enabled",
+    "EnableTrackingProtection": {
+      "Value": true,
+      "Locked": false,
+      "Cryptomining": true,
+      "Fingerprinting": true,
+      "EmailTracking": true
+    },
+    "Cookies": {
+      "Behavior": "reject-tracker-and-partition-foreign",
+      "Locked": false
+    },
+    "SearchEngines": {
+      "Default": "DuckDuckGo",
+      "PreventInstalls": false
+    },
+    "SearchSuggestEnabled": false,
+    "FirefoxSuggest": {
+      "WebSuggestions": false,
+      "SponsoredSuggestions": false,
+      "ImproveSuggest": false,
+      "Locked": false
+    },
+    "FirefoxHome": {
+      "Search": true,
+      "TopSites": false,
+      "SponsoredTopSites": false,
+      "Highlights": false,
+      "Pocket": false,
+      "SponsoredPocket": false,
+      "Snippets": false,
+      "Locked": false
+    },
+    "UserMessaging": {
+      "ExtensionRecommendations": false,
+      "FeatureRecommendations": false,
+      "UrlbarInterventions": false,
+      "SkipOnboarding": true,
+      "MoreFromMozilla": false,
+      "Locked": false
+    },
+    "Homepage": {
+      "URL": "file:///usr/share/lainos/startpage/index.html",
+      "StartPage": "homepage",
+      "Locked": false
+    },
+    "ExtensionSettings": {
+      "uBlock0@raymondhill.net": {
+        "installation_mode": "normal_installed",
+        "install_url": "https://addons.mozilla.org/firefox/downloads/latest/ublock-origin/latest.xpi"
+      }
+    },
+    "ManagedBookmarks": [
+      { "toplevel_name": "LainOS" },
+      {
+        "name": "Referência",
+        "children": [
+          { "name": "Arch Wiki", "url": "https://wiki.archlinux.org/" },
+          { "name": "Hyprland Wiki", "url": "https://wiki.hypr.land/" },
+          { "name": "MDN Web Docs", "url": "https://developer.mozilla.org/" },
+          { "name": "Hermes Agent", "url": "https://hermes-agent.nousresearch.com/" }
+        ]
+      },
+      {
+        "name": "Segurança",
+        "children": [
+          { "name": "HackTricks", "url": "https://book.hacktricks.wiki/" },
+          { "name": "GTFOBins", "url": "https://gtfobins.github.io/" },
+          { "name": "OWASP Cheat Sheets", "url": "https://cheatsheetseries.owasp.org/" },
+          { "name": "CyberChef", "url": "https://gchq.github.io/CyberChef/" },
+          { "name": "Hack The Box", "url": "https://www.hackthebox.com/" },
+          { "name": "TryHackMe", "url": "https://tryhackme.com/" }
+        ]
+      },
+      {
+        "name": "Privacidade",
+        "children": [
+          { "name": "Estou no Tor?", "url": "https://check.torproject.org/" },
+          { "name": "Cover Your Tracks (EFF)", "url": "https://coveryourtracks.eff.org/" },
+          { "name": "Privacy Guides", "url": "https://www.privacyguides.org/" }
+        ]
+      }
+    ],
+    "Preferences": {
+      "browser.contentblocking.category": { "Value": "strict", "Status": "default" },
+      "privacy.globalprivacycontrol.enabled": { "Value": true, "Status": "default" },
+      "network.prefetch-next": { "Value": false, "Status": "default" },
+      "network.dns.disablePrefetch": { "Value": true, "Status": "default" },
+      "network.predictor.enabled": { "Value": false, "Status": "default" },
+      "browser.urlbar.speculativeConnect.enabled": { "Value": false, "Status": "default" },
+      "media.peerconnection.ice.default_address_only": { "Value": true, "Status": "default" },
+      "browser.newtabpage.activity-stream.showSponsored": { "Value": false, "Status": "default" },
+      "browser.newtabpage.activity-stream.showSponsoredTopSites": { "Value": false, "Status": "default" },
+      "browser.aboutConfig.showWarning": { "Value": false, "Status": "default" },
+      "browser.tabs.inTitlebar": { "Value": 0, "Status": "default" },
+      "widget.use-xdg-desktop-portal.file-picker": { "Value": 1, "Status": "default" },
+      "extensions.pocket.enabled": { "Value": false, "Status": "default" }
+    }
+  }
+}

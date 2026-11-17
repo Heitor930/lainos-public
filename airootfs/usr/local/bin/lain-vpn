@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# ‡ LainOS — VPN pelo NetworkManager (WireGuard e OpenVPN).
+# Uso: lain-vpn [menu|waybar|import ARQUIVO]
+set -u
+
+refresh_bar() { pkill -RTMIN+9 -x waybar 2>/dev/null || true; }
+notify() { notify-send -a LainOS -i network-vpn-symbolic "$1" "${2:-}" 2>/dev/null || true; }
+
+# nome:tipo das conexões de VPN salvas / ativas
+saved() { nmcli -t -f NAME,TYPE connection show 2>/dev/null | awk -F: '$NF ~ /^(vpn|wireguard)$/ {sub(/:[^:]*$/, ""); print}'; }
+active() { nmcli -t -f NAME,TYPE connection show --active 2>/dev/null | awk -F: '$NF ~ /^(vpn|wireguard)$/ {sub(/:[^:]*$/, ""); print}'; }
+
+import_file() {
+    local file=$1 kind
+    case ${file,,} in
+        *.ovpn) kind=openvpn ;;
+        *.conf) kind=wireguard ;;
+        *) notify "VPN" "Use um arquivo .ovpn (OpenVPN) ou .conf (WireGuard)."; return 1 ;;
+    esac
+    if out=$(nmcli connection import type "$kind" file "$file" 2>&1); then
+        # WireGuard importado sobe sozinho; deixamos desligado para o usuário decidir
+        notify "VPN importada" "$(basename "$file") · ligue pelo menu de VPN."
+    else
+        notify "Não consegui importar" "$out"
+        return 1
+    fi
+}
+
+case ${1:-menu} in
+    waybar)
+        names=$(active | paste -sd, -)
+        if [[ -n $names ]]; then
+            jq -cn --arg n "$names" '{text: ("\uf023  " + $n), class: "on", tooltip: ("VPN ligada: " + $n + "\nClique para gerenciar.")}'
+        else
+            jq -cn '{text: "\uf09c", class: "off", tooltip: "VPN desligada\nClique para ligar ou importar um arquivo .ovpn / .conf"}'
+        fi
+        ;;
+    import)
+        import_file "${2:?informe o arquivo}"
+        refresh_bar
+        ;;
+    menu)
+        pkill -x rofi 2>/dev/null && exit 0
+        mapfile -t all < <(saved)
+        mapfile -t on < <(active)
+        entries=()
+        for name in "${all[@]}"; do
+            state="○"
+            for a in "${on[@]}"; do [[ $a == "$name" ]] && state="●"; done
+            entries+=("$state  $name")
+        done
+        entries+=("+  Importar arquivo .ovpn / .conf…" "⚙  Gerenciar conexões…")
+        choice=$(printf '%s\n' "${entries[@]}" | rofi -dmenu -i -theme menu -mesg "vpn  ·  ● ligada  ○ desligada") || exit 0
+        case $choice in
+            "+"*)
+                file=$(zenity --file-selection --title="Importar VPN" --file-filter='VPN (*.ovpn, *.conf) | *.ovpn *.conf' 2>/dev/null) || exit 0
+                import_file "$file"
+                ;;
+            "⚙"*) nm-connection-editor & disown ;;
+            "●"*)
+                name=${choice#*  }
+                nmcli connection down id "$name" >/dev/null 2>&1 && notify "VPN desligada" "$name"
+                ;;
+            "○"*)
+                name=${choice#*  }
+                if out=$(nmcli connection up id "$name" 2>&1); then notify "VPN ligada" "$name"; else notify "Falha ao ligar $name" "$out"; fi
+                ;;
+        esac
+        refresh_bar
+        ;;
+    *) echo "uso: lain-vpn [menu|waybar|import ARQUIVO]" >&2; exit 2 ;;
+esac

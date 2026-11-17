@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LainOS</title>
+<style>
+  :root {
+    --bg0: #080908; --bg1: #0d0f0d; --bg2: #131613; --line: #262b25;
+    --fg: #e8eae4; --dim: #a3a89b; --mute: #6c7266;
+    --moss: #8a9a5b; --moss-bright: #a9bb74;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; color: var(--fg);
+    font: 15px/1.5 "Inter", system-ui, sans-serif;
+    background:
+      radial-gradient(90rem 40rem at 70% 110%, rgba(138, 154, 91, .16), transparent 60%),
+      linear-gradient(var(--bg0), var(--bg1));
+    background-attachment: fixed;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 9vh 16px 48px;
+  }
+  header { text-align: center; margin-bottom: 34px; }
+  .mark { width: 62px; height: 62px; }
+  h1 { font-weight: 300; letter-spacing: .42em; font-size: 22px; margin: 16px 0 2px; padding-left: .42em; }
+  h1 .os { color: var(--moss-bright, #a9bb74); margin-left: .3em; }
+  .tag { color: var(--mute); letter-spacing: .28em; font-size: 11px; text-transform: uppercase; }
+  .clock { color: var(--dim); font: 300 44px/1 "Inter", sans-serif; margin-top: 22px; font-variant-numeric: tabular-nums; }
+  form { width: min(640px, 100%); margin-bottom: 38px; }
+  input[type=search] {
+    width: 100%; padding: 15px 22px; border-radius: 999px;
+    background: rgba(232, 234, 228, .05); color: var(--fg);
+    border: 1px solid var(--line); font: inherit; font-size: 16px; outline: none;
+    transition: border-color .2s, background .2s;
+  }
+  input[type=search]:focus { border-color: var(--moss); background: rgba(232, 234, 228, .08); }
+  input::placeholder { color: var(--mute); }
+  main {
+    width: min(980px, 100%);
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px;
+  }
+  section {
+    background: rgba(232, 234, 228, .035); border: 1px solid var(--line);
+    border-radius: 16px; padding: 18px 20px 14px;
+  }
+  h2 { margin: 0 0 10px; font-size: 11px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--moss-bright); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li a {
+    display: block; padding: 6px 0; color: var(--dim); text-decoration: none;
+    transition: color .15s, padding-left .15s;
+  }
+  li a:hover, li a:focus { color: var(--fg); padding-left: 6px; outline: none; }
+  footer { margin-top: 34px; color: var(--mute); font-size: 12px; text-align: center; max-width: 640px; }
+  footer code { color: var(--dim); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+    <circle cx="32" cy="32" r="28" fill="none" stroke="#8a9a5b" stroke-width="2.5"/>
+    <path d="M32 12v40M20 23h24M24 31h16" stroke="#e8eae4" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+  </svg>
+  <h1>LAIN<span class="os">OS</span></h1>
+  <div class="tag">stay wired</div>
+  <div class="clock" id="clock" aria-live="off"></div>
+</header>
+
+<form action="https://duckduckgo.com/" method="get" role="search">
+  <input type="search" name="q" placeholder="Buscar com DuckDuckGo" autofocus autocomplete="off" aria-label="Buscar">
+</form>
+
+<main>
+  <section>
+    <h2>Dia a dia</h2>
+    <ul>
+      <li><a href="https://github.com/">GitHub</a></li>
+      <li><a href="https://wiki.archlinux.org/">Arch Wiki</a></li>
+      <li><a href="https://wiki.hypr.land/">Hyprland Wiki</a></li>
+      <li><a href="https://developer.mozilla.org/">MDN Web Docs</a></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Segurança</h2>
+    <ul>
+      <li><a href="https://book.hacktricks.wiki/">HackTricks</a></li>
+      <li><a href="https://gtfobins.github.io/">GTFOBins</a></li>
+      <li><a href="https://cheatsheetseries.owasp.org/">OWASP Cheat Sheets</a></li>
+      <li><a href="https://gchq.github.io/CyberChef/">CyberChef</a></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Praticar (legalmente)</h2>
+    <ul>
+      <li><a href="https://www.hackthebox.com/">Hack The Box</a></li>
+      <li><a href="https://tryhackme.com/">TryHackMe</a></li>
+      <li><a href="https://portswigger.net/web-security">Web Security Academy</a></li>
+      <li><a href="https://overthewire.org/wargames/">OverTheWire</a></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Privacidade</h2>
+    <ul>
+      <li><a href="https://check.torproject.org/">Estou no Tor?</a></li>
+      <li><a href="https://coveryourtracks.eff.org/">Cover Your Tracks</a></li>
+      <li><a href="https://www.privacyguides.org/">Privacy Guides</a></li>
+      <li><a href="about:preferences#privacy">Ajustes de privacidade</a></li>
+    </ul>
+  </section>
+  <section>
+    <h2>Extensões para testes</h2>
+    <ul>
+      <li><a href="https://addons.mozilla.org/firefox/addon/foxyproxy-standard/">FoxyProxy (Burp, ZAP, Tor)</a></li>
+      <li><a href="https://addons.mozilla.org/firefox/addon/multi-account-containers/">Contêineres de conta</a></li>
+      <li><a href="https://addons.mozilla.org/firefox/addon/wappalyzer/">Wappalyzer</a></li>
+      <li><a href="https://addons.mozilla.org/firefox/addon/cookie-editor/">Cookie-Editor</a></li>
+    </ul>
+  </section>
+</main>
+
+<footer>
+  Este Firefox já vem com bloqueio de rastreadores no modo estrito, HTTPS obrigatório, telemetria
+  desligada e uBlock Origin. Para navegar pelo Tor, abra o <code>Navi Ghost</code> (SUPER + SHIFT + B)
+  ou o Tor Browser.
+</footer>
+
+<script>
+  (function () {
+    var el = document.getElementById("clock");
+    function tick() {
+      var d = new Date();
+      el.textContent = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+    }
+    tick();
+    setInterval(tick, 10000);
+  })();
+</script>
+</body>
+</html>

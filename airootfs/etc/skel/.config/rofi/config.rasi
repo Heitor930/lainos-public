@@ -1,0 +1,16 @@
+/* ‡ LainOS — rofi */
+configuration {
+    modi: "drun,run,window";
+    show-icons: true;
+    icon-theme: "Papirus-Dark";
+    font: "Inter 11";
+    drun-display-format: "{name}";
+    display-drun: "apps";
+    display-run: "comando";
+    display-window: "janelas";
+    hover-select: true;
+    me-select-entry: "";
+    me-accept-entry: "MousePrimary";
+    kb-cancel: "Escape,Control+c";
+}
+@theme "lainos"

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# ‡ LainOS — regras de janela, blur das camadas e gestos.
+#
+# A sintaxe dessas regras mudou várias vezes no Hyprland (0.48, 0.51, 0.53).
+# Em vez de apostar numa versão, este script aplica cada regra com
+# `hyprctl keyword`, tentando a sintaxe nova e caindo para as antigas.
+# Assim a configuração principal nunca mostra erro por causa disso.
+#
+# Roda a cada recarga da configuração (linha `exec = lain-rules`).
+set -u
+
+command -v hyprctl >/dev/null 2>&1 || exit 0
+
+try() {
+    local out
+    out=$(hyprctl keyword "$1" "$2" 2>&1)
+    [[ $out == ok ]]
+}
+
+# window_rule <efeito novo> <efeito antigo> <regex da classe> [regex do título]
+window_rule() {
+    local new_effect=$1 old_effect=$2 class=$3 title=${4:-}
+    local new_match="match:class $class" old_match="class:$class"
+    if [[ -n $title ]]; then
+        new_match+=", match:title $title"
+        old_match+=", title:$title"
+    fi
+    try windowrule "$new_effect, $new_match" ||
+        try windowrule "$old_effect, $old_match" ||
+        try windowrulev2 "$old_effect, $old_match" || true
+}
+
+# layer_rule <efeito novo> <efeito antigo> <regex do namespace>
+layer_rule() {
+    try layerrule "$1, match:namespace $3" || try layerrule "$2, $3" || true
+}
+
+# --- Janelas que nascem flutuando, centralizadas -------------------------
+dialogs='^(pavucontrol|org\.pulseaudio\.pavucontrol|nm-connection-editor|blueman-manager|xdg-desktop-portal-gtk|zenity|org\.gnome\.Zenity|lain-float)$'
+window_rule 'float on' 'float' "$dialogs"
+window_rule 'center on' 'center' "$dialogs"
+window_rule 'size 920 600' 'size 920 600' '^(lain-float)$'
+
+window_rule 'float on' 'float' '^(lainos-welcome|dev\.lainos\.Welcome)$'
+window_rule 'center on' 'center' '^(lainos-welcome|dev\.lainos\.Welcome)$'
+window_rule 'size 1000 680' 'size 1000 680' '^(lainos-welcome|dev\.lainos\.Welcome)$'
+
+window_rule 'float on' 'float' '^(dev\.lainos\.Installer)$'
+window_rule 'center on' 'center' '^(dev\.lainos\.Installer)$'
+window_rule 'size 760 640' 'size 760 640' '^(dev\.lainos\.Installer)$'
+
+# Vídeo em miniatura do navegador: flutua e acompanha todas as áreas
+window_rule 'float on' 'float' '^(firefox)$' '^(Picture-in-Picture)$'
+window_rule 'pin on' 'pin' '^(firefox)$' '^(Picture-in-Picture)$'
+
+# Apps não decidem sozinhos virar tela cheia
+window_rule 'suppress_event maximize' 'suppressevent maximize' '.*'
+
+# --- Vidro fosco atrás da barra, dock, menus e notificações ---------------
+glass='^(waybar|rofi|swaync-control-center|swaync-notification-window|nwg-dock.*|nwg-drawer|gtk-layer-shell)$'
+layer_rule 'blur on' 'blur' "$glass"
+layer_rule 'ignore_alpha 0.25' 'ignorealpha 0.25' "$glass"
+
+# --- Gestos do touchpad: três dedos trocam de área de trabalho ------------
+try gesture '3, horizontal, workspace' || try gestures:workspace_swipe true || true
+
+# --- Opções que só existem em versões recentes (ignoradas nas antigas) ----
+try ecosystem:no_update_news true || true
+try ecosystem:no_donation_nag true || true
+try decoration:rounding_power 2.4 || true
+
+# --- Modo leve persistente -------------------------------------------------
+conf="$HOME/.config/lainos/style.conf"
+PERFORMANCE=""
+# shellcheck disable=SC1090
+[[ -r $conf ]] && source "$conf"
+if [[ ${PERFORMANCE:-} == 1 ]]; then
+    lain-performance on --quiet || true
+fi
+exit 0

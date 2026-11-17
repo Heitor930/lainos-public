@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# ‡ LainOS — a saudação do terminal: arte + informações do sistema.
+# Com uma imagem sua definida por `lain-style terminal-art ARQUIVO`, mostra a
+# imagem (no kitty); sem ela, mostra a arte em texto de ~/.config/fastfetch/logo.txt
+set -u
+
+conf="$HOME/.config/lainos/style.conf"
+TERMINAL_ART="" TERMINAL_ART_COLS="" TERMINAL_ART_ROWS=""
+# shellcheck disable=SC1090
+[[ -r $conf ]] && source "$conf"
+
+command -v fastfetch >/dev/null 2>&1 || exit 0
+
+if [[ -n ${TERMINAL_ART:-} && -r $TERMINAL_ART && ${TERM:-} == xterm-kitty ]]; then
+    exec fastfetch --logo "$TERMINAL_ART" --logo-type kitty-direct \
+        --logo-width "${TERMINAL_ART_COLS:-32}" --logo-height "${TERMINAL_ART_ROWS:-16}" \
+        --logo-padding-top 1 --logo-padding-left 2 --logo-padding-right 4 "$@"
+fi
+exec fastfetch "$@"

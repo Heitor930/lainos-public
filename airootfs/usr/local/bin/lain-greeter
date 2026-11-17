@@ -1,0 +1,66 @@
+#!/bin/sh
+# ‡ LainOS — o que aparece antes de alguém entrar.
+#
+# Logo depois da instalação existe a marca /var/lib/lainos/firstboot: nesse
+# caso abre o assistente de primeiro início (teclado, fuso, usuário e senha).
+# Nos outros inícios, abre a tela de login (ReGreet). Os dois rodam dentro do
+# compositor mínimo cage, como o usuário sem privilégios "greeter".
+kbconf=/etc/X11/xorg.conf.d/00-keyboard.conf
+marker=/var/lib/lainos/firstboot
+
+load_keyboard() {
+    layout=br
+    variant=
+    if [ -r "$kbconf" ]; then
+        found=$(sed -n 's/.*Option[[:space:]]*"XkbLayout"[[:space:]]*"\([^"]*\)".*/\1/p' "$kbconf" | head -n1)
+        [ -n "$found" ] && layout=$found
+        variant=$(sed -n 's/.*Option[[:space:]]*"XkbVariant"[[:space:]]*"\([^"]*\)".*/\1/p' "$kbconf" | head -n1)
+    fi
+    export XKB_DEFAULT_LAYOUT="$layout"
+    if [ -n "$variant" ]; then
+        export XKB_DEFAULT_VARIANT="$variant"
+    else
+        unset XKB_DEFAULT_VARIANT
+    fi
+}
+
+export XCURSOR_THEME=Adwaita XCURSOR_SIZE=24
+
+if [ -e "$marker" ]; then
+    export PYTHONPATH=/usr/lib/lainos
+    LAIN_FIRSTBOOT_STATE="${XDG_RUNTIME_DIR:-/tmp}/lain-firstboot.$$"
+    export LAIN_FIRSTBOOT_STATE
+    step=""
+    tries=0
+    while [ -e "$marker" ] && [ "$tries" -lt 4 ]; do
+        load_keyboard
+        rm -f "$LAIN_FIRSTBOOT_STATE"
+        # shellcheck disable=SC2086  # $step é vazio ou duas palavras, de propósito
+        cage -s -- python3 -m firstboot $step
+        result=$(cat "$LAIN_FIRSTBOOT_STATE" 2>/dev/null)
+        rm -f "$LAIN_FIRSTBOOT_STATE"
+        case $result in
+            restart-account)
+                # o teclado mudou: reabre já no passo da conta, com o layout novo
+                step="--step account"
+                tries=0
+                ;;
+            login)
+                # conta criada e sessão pedida ao greetd: ele inicia a área de
+                # trabalho assim que este programa sair
+                exit 0
+                ;;
+            done)
+                break
+                ;;
+            *)
+                # a janela fechou sem terminar: tenta mais algumas vezes
+                tries=$((tries + 1))
+                sleep 1
+                ;;
+        esac
+    done
+fi
+
+load_keyboard
+exec cage -s -- regreet

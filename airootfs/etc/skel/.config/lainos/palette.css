@@ -1,0 +1,21 @@
+/* ‡ LainOS — paleta. Mude aqui e a barra, o dock, as notificações e os
+   apps GTK acompanham (reinicie a sessão ou rode `lain-style reload`). */
+
+@define-color bg0 #080908;
+@define-color bg1 #0d0f0d;
+@define-color bg2 #131613;
+@define-color bg3 #1a1e1a;
+@define-color border #262b25;
+@define-color border_strong #3a4235;
+
+@define-color fg #e8eae4;
+@define-color fg_dim #a3a89b;
+@define-color fg_mute #6c7266;
+
+@define-color moss #8a9a5b;
+@define-color moss_bright #a9bb74;
+@define-color moss_deep #3d4a24;
+@define-color moss_dark #232c16;
+
+@define-color red #b5564a;
+@define-color amber #c9a24a;

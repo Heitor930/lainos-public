@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# ‡ LainOS — atualiza o sistema inteiro.
+set -u
+if [[ ! -s /etc/pacman.d/gnupg/trustdb.gpg ]]; then
+    echo "  ‡ preparando as chaves do pacman (só na primeira vez)"
+    sudo pacman-key --init && sudo pacman-key --populate
+fi
+echo "  ‡ atualizando pacotes do sistema"
+sudo pacman -Syu || exit 1
+for candidate in "$HOME/.local/bin/hermes" "$HOME/.hermes/hermes-agent/.hermes/bin/hermes"; do
+    if [[ -x $candidate ]]; then
+        echo "  ‡ atualizando o Hermes Agent"
+        "$candidate" update || true
+        break
+    fi
+done
+echo "  ‡ pronto"

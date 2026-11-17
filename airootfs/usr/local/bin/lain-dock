@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# ‡ LainOS — dock (nwg-dock-hyprland).
+# Modo em ~/.config/lainos/style.conf:  DOCK="auto" (esconde sozinho, padrão),
+# DOCK="fixed" (sempre visível) ou DOCK="off".
+set -u
+
+conf="$HOME/.config/lainos/style.conf"
+DOCK=""
+# shellcheck disable=SC1090
+[[ -r $conf ]] && source "$conf"
+mode=${DOCK:-auto}
+
+pkill -f '^nwg-dock-hyprland' 2>/dev/null && sleep 0.3
+[[ $mode == off ]] && exit 0
+command -v nwg-dock-hyprland >/dev/null 2>&1 || exit 0
+
+icon=/usr/share/icons/hicolor/scalable/apps/lainos.svg
+if [[ $mode == fixed ]]; then base=(-x); else base=(-d); fi
+
+# Tenta com todas as opções; se a versão instalada não conhecer alguma,
+# o dock sai na hora e tentamos de novo com menos.
+start() {
+    nwg-dock-hyprland "$@" >/dev/null 2>&1 &
+    local pid=$!
+    sleep 2
+    kill -0 "$pid" 2>/dev/null
+}
+
+start "${base[@]}" -i 42 -mb 8 -lp start -c "lain-launcher grid" -ico "$icon" ||
+    start "${base[@]}" -i 42 -mb 8 -c "lain-launcher grid" ||
+    start "${base[@]}" ||
+    exit 1
+wait

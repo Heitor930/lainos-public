@@ -1,0 +1,42 @@
+# ‡ LainOS — tema do GRUB
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#0b0c0b"
+terminal-box: "terminal_box_*.png"
+terminal-font: "Unifont Regular 16"
+
++ boot_menu {
+    left = 18%
+    top = 42%
+    width = 64%
+    height = 46%
+    item_font = "Unifont Regular 16"
+    item_color = "#a3a89b"
+    selected_item_color = "#e8eae4"
+    item_height = 30
+    item_padding = 6
+    item_spacing = 6
+    selected_item_pixmap_style = "select_*.png"
+    scrollbar = false
+}
+
++ label {
+    top = 86%
+    left = 0
+    width = 100%
+    align = "center"
+    color = "#6c7266"
+    font = "Unifont Regular 16"
+    text = "LainOS  ·  stay wired"
+}
+
++ progress_bar {
+    id = "__timeout__"
+    left = 18%
+    top = 90%
+    width = 64%
+    height = 14
+    bar_style = "progress_bar_*.png"
+    highlight_style = "progress_highlight_*.png"
+    show_text = false
+}

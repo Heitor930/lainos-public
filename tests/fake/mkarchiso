@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# mkarchiso de mentira: confere o perfil que o build.sh preparou e cria uma "ISO" vazia.
+# (a menção a customize_airootfs.sh abaixo é o que o build.sh procura no mkarchiso de verdade)
+set -euo pipefail
+while (($#)); do
+    case $1 in
+        -v) shift ;;
+        -w) work=$2; shift 2 ;;
+        -o) out=$2; shift 2 ;;
+        *)  profile=$1; shift ;;
+    esac
+done
+for item in airootfs efiboot syslinux profiledef.sh pacman.conf packages.x86_64; do
+    [[ -e $profile/$item ]] || { echo "mkarchiso falso: falta $item no perfil" >&2; exit 1; }
+done
+[[ -L $profile/airootfs/etc/systemd/system/display-manager.service ]] ||
+    { echo "mkarchiso falso: os links simbólicos não foram criados" >&2; exit 1; }
+[[ -x $profile/airootfs/usr/local/bin/lain-greeter ]] ||
+    { echo "mkarchiso falso: os scripts perderam a permissão de execução" >&2; exit 1; }
+if grep -rIl $'\r' "$profile/airootfs/etc" "$profile/airootfs/usr/local/bin" >/dev/null 2>&1; then
+    echo "mkarchiso falso: sobrou fim de linha do Windows no perfil" >&2; exit 1
+fi
+mkdir -p "$work" "$out"
+: >"$out/lainos-$(date +%Y.%m.%d)-x86_64.iso"
+echo "mkarchiso falso: ok (${LAIN_ZSTD_LEVEL:-19})"

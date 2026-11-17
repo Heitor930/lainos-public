@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# ‡ LainOS — menu de energia (SUPER + Esc ou o botão no canto da barra).
+set -u
+
+pkill -x rofi 2>/dev/null && exit 0
+
+lock="   Bloquear"
+logout="   Sair da sessão"
+suspend="   Suspender"
+reboot="   Reiniciar"
+shutdown="   Desligar"
+
+menu() { rofi -dmenu -i -theme menu -mesg "$1"; }
+
+choice=$(printf '%s\n' "$lock" "$suspend" "$logout" "$reboot" "$shutdown" | menu "energia") || exit 0
+
+confirm() {
+    local answer
+    answer=$(printf '%s\n' "Sim, $1" "Cancelar" | menu "Tem certeza?") || return 1
+    [[ $answer == Sim* ]]
+}
+
+case $choice in
+    "$lock") loginctl lock-session ;;
+    "$suspend") systemctl suspend ;;
+    "$logout") confirm "sair" && hyprctl dispatch exit ;;
+    "$reboot") confirm "reiniciar" && systemctl reboot ;;
+    "$shutdown") confirm "desligar" && systemctl poweroff ;;
+esac

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Boas-vindas ao LainOS
+Name[en]=LainOS Welcome
+Comment=Informações do sistema, instalação e pacotes (jogos, pentest, servidor…)
+Comment[en]=System info, installer and software bundles
+Exec=lainos-welcome
+Icon=lainos-welcome
+Terminal=false
+Categories=System;Settings;
+Keywords=welcome;install;lainos;bundles;steam;pentest;
+StartupNotify=true

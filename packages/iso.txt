@@ -1,0 +1,190 @@
+# ‡ LainOS — pacotes que vêm na ISO.
+#
+# A ISO é enxuta de propósito: jogos, servidor, ferramentas de desenvolvimento e
+# o arsenal de segurança entram depois, pelo app de boas-vindas (lain-bundle).
+#
+# Como o build.sh lê este arquivo:
+#   nome          obrigatório: se não existir nos repositórios, o build para
+#   ?nome         opcional: se não existir, é pulado com um aviso
+#   a|b           usa o primeiro que existir (útil quando um pacote muda de nome)
+#   ?a|b          a mesma coisa, mas opcional
+# Só pacotes dos repositórios oficiais do Arch (core, extra). Nada do AUR.
+
+## núcleo e inicialização
+base
+linux
+linux-firmware
+intel-ucode
+amd-ucode
+mkinitcpio
+mkinitcpio-archiso
+syslinux
+sudo
+polkit
+zram-generator
+?plymouth
+which
+
+## instalador de um clique (particiona, copia e põe o boot no disco)
+arch-install-scripts
+rsync
+dosfstools
+e2fsprogs
+grub
+efibootmgr
+?os-prober
+
+## rede, VPN e firewall
+networkmanager
+network-manager-applet
+nm-connection-editor
+wireless-regdb
+openssh
+wireguard-tools
+openvpn
+networkmanager-openvpn
+ufw
+bluez
+bluez-utils
+blueman
+
+## som, energia e discos
+pipewire
+pipewire-alsa
+pipewire-pulse
+pipewire-jack
+wireplumber
+pavucontrol
+?alsa-utils
+?sof-firmware
+playerctl
+brightnessctl
+power-profiles-daemon
+upower
+udisks2
+gvfs
+?gvfs-mtp
+ntfs-3g
+exfatprogs
+?btrfs-progs
+
+## vídeo (drivers livres; o da NVIDIA proprietário entra pelo app de boas-vindas)
+mesa
+vulkan-icd-loader
+?vulkan-intel
+?vulkan-radeon
+?vulkan-nouveau
+?vulkan-swrast
+?intel-media-driver
+
+## área de trabalho: Hyprland e companhia
+hyprland
+hyprlock
+hypridle
+xdg-desktop-portal-hyprland
+xdg-desktop-portal-gtk
+xorg-xwayland
+qt6-wayland
+?qt6ct
+polkit-gnome
+waybar
+swaync
+swaybg
+rofi|rofi-wayland
+nwg-dock-hyprland
+nwg-drawer
+cliphist
+wl-clipboard
+grim
+slurp
+libnotify
+xdg-utils
+xdg-user-dirs
+kitty
+thunar
+?thunar-archive-plugin
+?thunar-volman
+?tumbler
+?file-roller
+?mousepad
+?imv
+?mpv
+zenity
+
+## tela de login e primeiro início
+greetd
+greetd-regreet
+cage
+
+## tema, ícones e fontes
+adw-gtk-theme
+adwaita-icon-theme
+papirus-icon-theme
+inter-font
+ttf-jetbrains-mono-nerd
+noto-fonts
+noto-fonts-emoji
+?adobe-source-han-sans-jp-fonts|noto-fonts-cjk
+
+## terminal
+zsh
+zsh-completions
+zsh-autosuggestions
+zsh-syntax-highlighting
+starship
+fastfetch
+eza
+bat
+fd
+ripgrep
+fzf
+jq
+git
+curl
+wget
+btop
+nano
+neovim
+man-db
+man-pages
+?man-pages-pt_br
+?tealdeer|tldr
+less
+tree
+tmux
+unzip
+zip
+7zip|p7zip
+pciutils
+usbutils
+?dmidecode
+?git-delta
+
+## privacidade: Tor, proxy e navegador
+tor
+torsocks
+proxychains-ng
+torbrowser-launcher
+firefox
+?firefox-i18n-pt-br
+whois
+bind
+openbsd-netcat
+
+## apps da distro (boas-vindas, instalador, primeiro início, Knights OSINT)
+python
+python-gobject
+gtk4
+libadwaita
+python-requests
+python-dnspython
+python-pysocks
+python-pillow
+perl-image-exiftool
+
+## idioma
+?hunspell-pt-br
+
+## utilidades
+?gnome-disk-utility
+?reflector

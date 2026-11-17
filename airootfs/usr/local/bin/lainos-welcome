@@ -1,0 +1,4 @@
+#!/bin/sh
+# ‡ LainOS — boas-vindas e configuração
+export PYTHONPATH="/usr/lib/lainos${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m welcome "$@"

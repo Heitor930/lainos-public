@@ -1,0 +1,6 @@
+#!/bin/sh
+# ‡ LainOS — inicia o Hyprland do jeito que a versão instalada preferir.
+if command -v start-hyprland >/dev/null 2>&1; then
+    exec start-hyprland "$@"
+fi
+exec Hyprland "$@"

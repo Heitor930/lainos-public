@@ -1,0 +1,231 @@
+#!/usr/bin/python3 -I
+"""‡ LainOS — aplica as escolhas do primeiro início (roda como root).
+
+O assistente de primeiro início roda como o usuário sem privilégios da tela de
+login e chama este programa pelo sudo, que só libera exatamente estas duas formas:
+
+    firstboot-apply system     teclado e fuso horário
+    firstboot-apply account    cria o usuário, define senha e nome da máquina
+
+Os dados chegam em JSON pela entrada padrão (a senha nunca aparece na linha de
+comando) e a resposta sai em JSON: {"ok": true} ou {"ok": false, "error": "..."}.
+
+Só funciona enquanto existir a marca /var/lib/lainos/firstboot, criada pelo
+instalador. Depois que a conta é criada a marca some e este programa passa a
+recusar tudo: ele não serve para criar contas num sistema já configurado.
+"""
+import grp
+import json
+import os
+import pwd
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, "/usr/lib/lainos")
+# Em testes (nunca via sudo, que sempre define SUDO_UID) o código vem de outra pasta.
+if not os.environ.get("SUDO_UID") and os.environ.get("LAIN_LIB_DIR"):
+    sys.path.insert(0, os.environ["LAIN_LIB_DIR"])
+
+from firstboot import rules  # noqa: E402
+
+# Modo de teste: escreve dentro de uma pasta e só anota os comandos que rodaria.
+TEST_ROOT = "" if os.environ.get("SUDO_UID") else os.environ.get("LAIN_FIRSTBOOT_ROOT", "")
+if not TEST_ROOT:
+    # Fora do modo de teste, nenhum caminho vem do ambiente de quem chamou.
+    rules.ZONEINFO = Path("/usr/share/zoneinfo")
+
+WANTED_GROUPS = ("wheel", "audio", "video", "storage", "network", "lp", "rfkill", "optical", "power")
+
+XORG_KEYBOARD = """# ‡ LainOS — teclado (escolhido no primeiro início).
+# A tela de login e a sessão Hyprland também leem este arquivo.
+Section "InputClass"
+    Identifier "system-keyboard"
+    MatchIsKeyboard "on"
+    Option "XkbLayout" "{layout}"
+    Option "XkbVariant" "{variant}"
+EndSection
+"""
+
+HOSTS = """# ‡ LainOS — nomes locais
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   {host}.localdomain {host}
+"""
+
+
+def path(name: str) -> str:
+    return TEST_ROOT + name if TEST_ROOT else name
+
+
+MARKER = path("/var/lib/lainos/firstboot")
+
+
+def reply(ok: bool, **extra) -> None:
+    print(json.dumps({"ok": ok, **extra}, ensure_ascii=False))
+    sys.exit(0 if ok else 1)
+
+
+def fail(message: str) -> None:
+    reply(False, error=message)
+
+
+def run(command: list[str], stdin_text: str | None = None) -> None:
+    if TEST_ROOT:
+        with open(path("/commands.log"), "a", encoding="utf-8") as log:
+            log.write(" ".join(command) + "\n")
+        return
+    proc = subprocess.run(command, input=stdin_text, text=True, capture_output=True, check=False)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip().splitlines()
+        raise RuntimeError(f"{command[0]}: {detail[-1] if detail else proc.returncode}")
+
+
+def write(name: str, text: str, mode: int = 0o644) -> None:
+    target = path(name)
+    os.makedirs(os.path.dirname(target), exist_ok=True)
+    temporary = target + ".lain-new"
+    with open(temporary, "w", encoding="utf-8") as handle:
+        handle.write(text)
+    os.chmod(temporary, mode)
+    os.replace(temporary, target)
+
+
+def patch_hypr_input(layout: str, variant: str) -> None:
+    """Deixa o modelo de configuração dos novos usuários com o teclado escolhido."""
+    target = path("/etc/skel/.config/hypr/conf/input.conf")
+    try:
+        with open(target, encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+    except OSError:
+        return
+    out: list[str] = []
+    done = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("kb_variant"):
+            continue
+        if stripped.startswith("kb_layout") and not done:
+            indent = line[: len(line) - len(line.lstrip())]
+            out.append(f"{indent}kb_layout = {layout}")
+            if variant:
+                out.append(f"{indent}kb_variant = {variant}")
+            done = True
+            continue
+        out.append(line)
+    if done:
+        write("/etc/skel/.config/hypr/conf/input.conf", "\n".join(out) + "\n")
+
+
+def action_system(data: dict) -> None:
+    keyboard = rules.keyboard_by_id(str(data.get("keyboard", "")))
+    timezone = str(data.get("timezone", ""))
+    if keyboard is None:
+        fail("Teclado desconhecido.")
+    if not rules.timezone_ok(timezone):
+        fail("Fuso horário desconhecido.")
+
+    write("/etc/X11/xorg.conf.d/00-keyboard.conf",
+          XORG_KEYBOARD.format(layout=keyboard.layout, variant=keyboard.variant))
+    write("/etc/vconsole.conf", f"KEYMAP={keyboard.console}\n")
+    patch_hypr_input(keyboard.layout, keyboard.variant)
+
+    link = path("/etc/localtime")
+    temporary = link + ".lain-new"
+    try:
+        if os.path.lexists(temporary):
+            os.remove(temporary)
+        os.symlink(str(rules.ZONEINFO / timezone), temporary)
+        os.replace(temporary, link)
+    except OSError as exc:
+        fail(f"Não consegui definir o fuso horário ({exc}).")
+    reply(True, keyboard=keyboard.id, timezone=timezone)
+
+
+def user_exists(name: str) -> bool:
+    try:
+        pwd.getpwnam(name)
+        return True
+    except KeyError:
+        return False
+
+
+def group_exists(name: str) -> bool:
+    try:
+        grp.getgrnam(name)
+        return True
+    except KeyError:
+        return False
+
+
+def action_account(data: dict) -> None:
+    full_name = rules.clean_full_name(str(data.get("fullname", "")))
+    username = str(data.get("username", ""))
+    password = str(data.get("password", ""))
+    hostname = str(data.get("hostname", "")) or rules.DEFAULT_HOSTNAME
+
+    for error in (rules.username_error(username), rules.password_error(password),
+                  rules.hostname_error(hostname)):
+        if error:
+            fail(error)
+    if user_exists(username):
+        fail("Já existe um usuário com esse nome.")
+
+    groups = [name for name in WANTED_GROUPS if group_exists(name)]
+    shell = "/usr/bin/zsh" if os.path.exists("/usr/bin/zsh") else "/bin/bash"
+    command = ["useradd", "-m", "-U", "-c", full_name or username, "-s", shell]
+    if groups:
+        command += ["-G", ",".join(groups)]
+    command.append(username)
+
+    created = False
+    try:
+        run(command)
+        created = True
+        run(["chpasswd"], stdin_text=f"{username}:{password}\n")
+        write("/etc/hostname", hostname + "\n")
+        write("/etc/hosts", HOSTS.format(host=hostname))
+        write("/var/lib/lainos/owner", username + "\n")
+    except (RuntimeError, OSError) as exc:
+        if created:
+            try:
+                run(["userdel", "-r", username])
+            except (RuntimeError, OSError):
+                pass
+        fail(f"Não consegui criar a conta ({exc}).")
+
+    if not TEST_ROOT:
+        try:
+            with open("/proc/sys/kernel/hostname", "w", encoding="ascii") as handle:
+                handle.write(hostname)
+        except OSError:
+            pass  # o nome novo vale a partir do próximo início
+
+    try:
+        os.remove(MARKER)
+    except OSError as exc:
+        fail(f"A conta foi criada, mas não consegui encerrar o primeiro início ({exc}).")
+    reply(True, username=username)
+
+
+def main() -> None:
+    if len(sys.argv) != 2 or sys.argv[1] not in ("system", "account"):
+        fail("uso: firstboot-apply system|account (dados em JSON pela entrada padrão)")
+    if not TEST_ROOT and os.geteuid() != 0:
+        fail("Este programa precisa rodar como root.")
+    if not os.path.exists(MARKER):
+        fail("O primeiro início já foi concluído neste computador.")
+    try:
+        data = json.loads(sys.stdin.read(64 * 1024) or "{}")
+    except ValueError:
+        fail("Dados inválidos.")
+    if not isinstance(data, dict):
+        fail("Dados inválidos.")
+    if sys.argv[1] == "system":
+        action_system(data)
+    else:
+        action_account(data)
+
+
+if __name__ == "__main__":
+    main()

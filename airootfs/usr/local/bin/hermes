@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# ‡ LainOS — porta de entrada do Hermes Agent (Nous Research).
+#
+# O Hermes se instala por usuário (em ~/.hermes) e se atualiza sozinho, então
+# a distro não congela uma cópia dele na ISO: este atalho usa a instalação do
+# usuário quando ela existe e, quando não existe, baixa a versão atual com o
+# instalador oficial. A configuração (provedor, modelo, chaves) fica para
+# depois, com `hermes setup`.
+set -u
+
+self=$(readlink -f "$0")
+for candidate in "$HOME/.local/bin/hermes" "$HOME/.hermes/hermes-agent/.hermes/bin/hermes"; do
+    if [[ -x $candidate && $(readlink -f "$candidate") != "$self" ]]; then
+        exec "$candidate" "$@"
+    fi
+done
+
+moss=$'\033[38;2;138;154;91m' dim=$'\033[38;2;108;114;102m' bold=$'\033[1m' reset=$'\033[0m'
+cat <<MSG
+
+  ${moss}‡${reset} ${bold}Hermes Agent${reset}
+
+  O Hermes ainda não foi baixado para este usuário.
+  ${dim}Vou usar o instalador oficial da Nous Research. Ele fica em ~/.hermes,
+  não pede senha de administrador e precisa de internet (~1 GB).
+  Nada é configurado agora: provedor, modelo e chaves você escolhe depois.${reset}
+
+MSG
+
+if [[ ! -t 0 ]]; then
+    echo "  Rode \`hermes\` num terminal para instalar." >&2
+    exit 1
+fi
+
+read -r -p "  Instalar agora? [S/n] " answer
+case ${answer,,} in
+    n | nao | não | no) echo "  Tudo bem. Rode \`hermes\` quando quiser."; exit 0 ;;
+esac
+
+lain-hermes-install || exit 1
+
+for candidate in "$HOME/.local/bin/hermes" "$HOME/.hermes/hermes-agent/.hermes/bin/hermes"; do
+    if [[ -x $candidate ]]; then
+        echo
+        if [[ $# -gt 0 ]]; then exec "$candidate" "$@"; fi
+        read -r -p "  Abrir o assistente de configuração (hermes setup)? [S/n] " answer
+        case ${answer,,} in
+            n | nao | não | no) exec "$candidate" ;;
+            *) exec "$candidate" setup ;;
+        esac
+    fi
+done
+echo "  A instalação terminou, mas não encontrei o comando. Veja ~/.hermes/logs/install.log" >&2
+exit 1

@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# ‡ LainOS — primeiro início em modo texto (plano B).
+#
+# O caminho normal é o assistente gráfico que aparece no lugar da tela de
+# login. Se por algum motivo ele não abrir (placa de vídeo sem driver, por
+# exemplo), este aqui fica esperando no terminal 2 (Ctrl+Alt+F2) e faz o mesmo
+# trabalho: cria o usuário e a senha. Roda como root, iniciado pelo systemd,
+# e só existe enquanto houver a marca /var/lib/lainos/firstboot.
+set -u
+marker=/var/lib/lainos/firstboot
+helper=/usr/lib/lainos/firstboot-apply
+
+[[ -e $marker ]] || exit 0
+
+json_escape() { python3 -c 'import json,sys; print(json.dumps(sys.argv[1]))' "$1"; }
+
+clear
+cat <<'TXT'
+
+  ‡ LainOS — primeiro início (modo texto)
+
+  Use esta tela só se o assistente gráfico não apareceu na tela principal
+  (volte para ela com Ctrl+Alt+F1). Aqui você cria o usuário e a senha.
+
+TXT
+
+while [[ -e $marker ]]; do
+    read -r -p "  Seu nome: " fullname || exit 0
+    read -r -p "  Nome de usuário (minúsculas, sem espaço): " username || exit 0
+    read -r -s -p "  Senha (mínimo 6 caracteres): " password || exit 0
+    echo
+    read -r -s -p "  Repita a senha: " confirm || exit 0
+    echo
+    if [[ $password != "$confirm" ]]; then
+        echo "  As duas senhas não são iguais. Vamos de novo."
+        echo
+        continue
+    fi
+    read -r -p "  Nome do computador [lainos]: " hostname || exit 0
+    hostname=${hostname:-lainos}
+
+    payload=$(printf '{"fullname": %s, "username": %s, "password": %s, "hostname": %s}' \
+        "$(json_escape "$fullname")" "$(json_escape "$username")" \
+        "$(json_escape "$password")" "$(json_escape "$hostname")")
+    answer=$(printf '%s' "$payload" | "$helper" account 2>&1)
+    if [[ $answer == *'"ok": true'* ]]; then
+        echo
+        echo "  Conta criada. Abrindo a tela de login..."
+        sleep 2
+        systemctl --no-block restart greetd.service
+        exit 0
+    fi
+    message=$(python3 -c 'import json,sys
+try:
+    print(json.loads(sys.argv[1]).get("error", ""))
+except Exception:
+    print("")' "$answer")
+    echo "  Não deu certo: ${message:-erro desconhecido}"
+    echo
+done

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# ‡ LainOS — Navi Ghost: um Firefox à parte que só fala pelo Tor.
+#
+# Perfil separado do navegador do dia a dia: todo o tráfego e o DNS saem pelo
+# SOCKS do Tor, navegação sempre privativa, WebRTC e WebGL desligados e
+# resistência a fingerprint ligada. Se o Tor cair, a página não carrega: não
+# há retorno para conexão direta.
+#
+# Honestidade: isto não substitui o Tor Browser, que é o único com a
+# impressão digital igual à de milhões de pessoas. Use o Ghost para pesquisa
+# rápida e o Tor Browser quando o anonimato importar de verdade.
+set -u
+
+profile="$HOME/.local/share/lainos/navi-ghost"
+mkdir -p "$profile"
+
+cat >"$profile/user.js" <<'JS'
+// Gerado pelo navi-ghost a cada abertura. Edições aqui são sobrescritas.
+user_pref("network.proxy.type", 1);
+user_pref("network.proxy.socks", "127.0.0.1");
+user_pref("network.proxy.socks_port", 9050);
+user_pref("network.proxy.socks_version", 5);
+user_pref("network.proxy.socks_remote_dns", true);
+user_pref("network.proxy.failover_direct", false);
+user_pref("network.proxy.allow_bypass", false);
+user_pref("network.trr.mode", 5);
+user_pref("network.dns.disablePrefetch", true);
+user_pref("network.prefetch-next", false);
+user_pref("network.predictor.enabled", false);
+user_pref("network.http.speculative-parallel-limit", 0);
+user_pref("browser.urlbar.speculativeConnect.enabled", false);
+user_pref("media.peerconnection.enabled", false);
+user_pref("webgl.disabled", true);
+user_pref("geo.enabled", false);
+user_pref("privacy.resistFingerprinting", true);
+user_pref("privacy.resistFingerprinting.letterboxing", true);
+user_pref("privacy.firstparty.isolate", true);
+user_pref("browser.privatebrowsing.autostart", true);
+user_pref("dom.security.https_only_mode", true);
+user_pref("browser.startup.homepage", "https://check.torproject.org/");
+user_pref("browser.startup.page", 1);
+user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.aboutConfig.showWarning", false);
+user_pref("signon.rememberSignons", false);
+user_pref("browser.formfill.enable", false);
+JS
+
+notify() { notify-send -a "Navi Ghost" -i navi-ghost "$1" "${2:-}" 2>/dev/null || true; }
+port_open() { (exec 3<>/dev/tcp/127.0.0.1/9050) 2>/dev/null; }
+
+if ! systemctl is-active --quiet tor.service; then
+    notify "Conectando ao Tor…" "Iniciando o serviço."
+    sudo -n /usr/bin/systemctl start tor.service 2>/dev/null || systemctl start tor.service ||
+        { notify "Não consegui iniciar o Tor" "Tente: sudo systemctl start tor"; exit 1; }
+fi
+for _ in $(seq 1 40); do port_open && break; sleep 0.5; done
+port_open || { notify "O Tor não respondeu" "Veja: journalctl -u tor"; exit 1; }
+
+exec firefox --no-remote --profile "$profile" "$@"

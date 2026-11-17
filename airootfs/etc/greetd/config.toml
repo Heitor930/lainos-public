@@ -1,0 +1,7 @@
+# ‡ LainOS — tela de login
+[terminal]
+vt = 1
+
+[default_session]
+command = "lain-greeter"
+user = "greeter"

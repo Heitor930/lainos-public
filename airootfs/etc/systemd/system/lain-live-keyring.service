@@ -1,0 +1,17 @@
+# ‡ LainOS — na sessão ao vivo, deixa o pacman pronto para instalar pacotes
+# na memória (chaves geradas a cada início; nada disso vai para o disco).
+[Unit]
+Description=LainOS: chaves do pacman na sessão ao vivo
+ConditionPathIsDirectory=/run/archiso
+ConditionPathExists=!/etc/pacman.d/gnupg/trustdb.gpg
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+Nice=10
+ExecStart=/usr/bin/pacman-key --init
+ExecStart=/usr/bin/pacman-key --populate
+
+[Install]
+WantedBy=multi-user.target

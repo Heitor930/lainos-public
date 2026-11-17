@@ -1,0 +1,14 @@
+# ‡ LainOS — só roda quando o sistema sobe pelo pendrive (ISO ao vivo).
+[Unit]
+Description=LainOS: prepara a sessão ao vivo
+ConditionPathIsDirectory=/run/archiso
+After=systemd-sysusers.service systemd-tmpfiles-setup.service local-fs.target
+Before=greetd.service display-manager.service systemd-user-sessions.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/lib/lainos/live-setup
+
+[Install]
+WantedBy=multi-user.target

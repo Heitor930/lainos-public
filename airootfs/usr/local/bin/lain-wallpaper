@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# ‡ LainOS — papel de parede.
+# Uso: lain-wallpaper            aplica o papel de parede salvo
+#      lain-wallpaper set ARQ    troca e salva
+#      lain-wallpaper pick       abre o seletor com miniaturas
+set -u
+
+conf="$HOME/.config/lainos/style.conf"
+default=/usr/share/lainos/wallpapers/01-wired-dusk.jpg
+WALLPAPER=""
+# shellcheck disable=SC1090
+[[ -r $conf ]] && source "$conf"
+[[ -r ${WALLPAPER:-} ]] || WALLPAPER=$default
+
+apply() {
+    local old
+    old=$(pgrep -x swaybg || true)
+    setsid -f swaybg -i "$1" -m fill -c 080908 >/dev/null 2>&1
+    # mata o anterior só depois que o novo já desenhou: troca sem piscar
+    if [[ -n $old ]]; then
+        sleep 0.6
+        # shellcheck disable=SC2086
+        kill $old 2>/dev/null || true
+    fi
+}
+
+save() {
+    mkdir -p "$(dirname "$conf")"
+    touch "$conf"
+    if grep -q '^WALLPAPER=' "$conf"; then
+        local escaped=${1//\\/\\\\}
+        escaped=${escaped//&/\\&}
+        escaped=${escaped//|/\\|}
+        sed -i "s|^WALLPAPER=.*|WALLPAPER=\"$escaped\"|" "$conf"
+    else
+        echo "WALLPAPER=\"$1\"" >>"$conf"
+    fi
+}
+
+case ${1:-start} in
+    start) apply "$WALLPAPER" ;;
+    set)
+        file=${2:-}
+        [[ -r $file ]] || { echo "arquivo não encontrado: $file" >&2; exit 1; }
+        file=$(readlink -f "$file")
+        save "$file"
+        apply "$file"
+        ;;
+    pick)
+        pictures=$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Imagens")
+        mapfile -d '' files < <(find /usr/share/lainos/wallpapers "$pictures/Wallpapers" -maxdepth 2 -type f \
+            \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) -print0 2>/dev/null | sort -z)
+        [[ ${#files[@]} -gt 0 ]] || exit 0
+        choice=$(for f in "${files[@]}"; do
+            name=$(basename "$f")
+            printf '%s\0icon\x1f%s\n' "${name%.*}" "$f"
+        done | rofi -dmenu -i -format i -p "papel de parede" -theme wallpapers \
+            -mesg "Coloque suas imagens em $pictures/Wallpapers")
+        [[ $choice =~ ^[0-9]+$ ]] || exit 0
+        save "${files[$choice]}"
+        apply "${files[$choice]}"
+        ;;
+    *) echo "uso: lain-wallpaper [start|set ARQUIVO|pick]" >&2; exit 2 ;;
+esac

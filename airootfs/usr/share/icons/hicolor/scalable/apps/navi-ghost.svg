@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>Navi Ghost</title>
+  <rect width="256" height="256" rx="56" fill="#0a0b0a"/>
+  <circle cx="128" cy="128" r="84" fill="none" stroke="#3d4a24" stroke-width="8"/>
+  <path d="M44 128 H212 M128 44 C92 80 92 176 128 212 M128 44 C164 80 164 176 128 212"
+        fill="none" stroke="#8a9a5b" stroke-width="6" stroke-linecap="round"/>
+  <path d="M60 60 L196 196" stroke="#e8eae4" stroke-width="12" stroke-linecap="round"/>
+</svg>

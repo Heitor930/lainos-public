@@ -1,0 +1,194 @@
+#!/usr/bin/env bash
+# ‡ LainOS — pacotes de uso ("bundles").
+#
+# A ISO vem enxuta de propósito. Cada bundle é um arquivo em
+# /usr/share/lainos/bundles/*.conf e instala um conjunto com um comando.
+# Os conjuntos de ferramentas de segurança existem para estudo, CTF e testes
+# autorizados — o mesmo público de distribuições como Kali e BlackArch.
+#
+#   lain-bundle list                 lista os bundles e se já estão instalados
+#   lain-bundle info ID              mostra o que o bundle instala
+#   lain-bundle install ID [ID...]   instala (pede a senha de administrador)
+#
+# Nomes de pacote mudam no Arch de tempos em tempos: os que não existirem
+# mais nos repositórios são pulados com um aviso, sem abortar o resto.
+set -u
+
+BUNDLE_DIR=${LAIN_BUNDLE_DIR:-/usr/share/lainos/bundles}
+STATE_DIR=${LAIN_STATE_DIR:-/var/lib/lainos/bundles}
+
+if [[ -t 1 ]]; then
+    moss=$'\033[38;2;138;154;91m' dim=$'\033[38;2;108;114;102m' red=$'\033[38;2;181;86;74m'
+    amber=$'\033[38;2;201;162;74m' bold=$'\033[1m' reset=$'\033[0m'
+else
+    moss="" dim="" red="" amber="" bold="" reset=""
+fi
+step() { printf '\n  %s‡%s %s%s%s\n' "$moss" "$reset" "$bold" "$1" "$reset"; }
+info() { printf '    %s%s%s\n' "$dim" "$1" "$reset"; }
+warn() { printf '    %s! %s%s\n' "$amber" "$1" "$reset"; }
+fail() { printf '    %sx %s%s\n' "$red" "$1" "$reset" >&2; }
+
+load() {
+    local file="$BUNDLE_DIR/$1.conf"
+    [[ -r $file ]] || { fail "bundle desconhecido: $1"; return 1; }
+    # shellcheck disable=SC2034  # lidos pelo app de boas-vindas
+    NAME="" DESC="" ICON="" CATEGORY="" MULTILIB=0 PACKAGES="" SERVICES="" USER_GROUPS="" NOTE="" NEEDS_BLACKARCH=0
+    unset -f extra_packages pre_install post_install 2>/dev/null
+    # shellcheck disable=SC1090
+    source "$file"
+}
+
+ids() {
+    local f
+    for f in "$BUNDLE_DIR"/*.conf; do
+        [[ -e $f ]] || continue
+        basename "$f" .conf
+    done
+}
+
+is_installed() { [[ -e "$STATE_DIR/$1" ]]; }
+
+cmd_list() {
+    local id state
+    for id in $(ids); do
+        load "$id" || continue
+        if is_installed "$id"; then state="instalado"; else state="-"; fi
+        printf '%s|%s|%s|%s|%s\n' "$id" "$CATEGORY" "$NAME" "$DESC" "$state"
+    done
+}
+
+cmd_info() {
+    load "$1" || exit 1
+    printf '%s%s%s  (%s)\n%s\n\n' "$bold" "$NAME" "$reset" "$1" "$DESC"
+    [[ -n $PACKAGES ]] && printf 'pacotes:  %s\n' "$PACKAGES"
+    [[ -n $SERVICES ]] && printf 'serviços: %s\n' "$SERVICES"
+    [[ -n $USER_GROUPS ]] && printf 'grupos:   %s\n' "$USER_GROUPS"
+    [[ $MULTILIB == 1 ]] && printf 'ativa o repositório multilib (programas 32 bits)\n'
+    [[ $NEEDS_BLACKARCH == 1 ]] && printf 'usa o repositório BlackArch (ligado automaticamente)\n'
+    [[ -n $NOTE ]] && printf '\n%s\n' "$NOTE"
+    return 0
+}
+
+enable_multilib() {
+    grep -q '^\[multilib\]' /etc/pacman.conf && return 0
+    info "ativando o repositório multilib em /etc/pacman.conf"
+    sed -i '/^#\[multilib\]$/,/^#Include/ s/^#//' /etc/pacman.conf
+    grep -q '^\[multilib\]' /etc/pacman.conf || { fail "não consegui ativar o multilib"; return 1; }
+}
+
+enable_blackarch() {
+    grep -q '^\[blackarch\]' /etc/pacman.conf && return 0
+    info "ligando o repositório BlackArch (strap.sh oficial)"
+    local tmp
+    tmp=$(mktemp)
+    if ! curl -fsSL --max-time 60 https://blackarch.org/strap.sh -o "$tmp"; then
+        fail "não consegui baixar o strap.sh do BlackArch"
+        rm -f "$tmp"
+        return 1
+    fi
+    # O strap.sh confere o próprio SHA1 antes de rodar e adiciona a chave e o repo.
+    if ! bash "$tmp"; then
+        fail "o strap.sh do BlackArch não concluiu"
+        rm -f "$tmp"
+        return 1
+    fi
+    rm -f "$tmp"
+    pacman -Sy --noconfirm >/dev/null
+}
+
+available() { pacman -Si "$1" >/dev/null 2>&1 || pacman -Sg "$1" >/dev/null 2>&1; }
+
+# As chaves do pacman são criadas por instalação. Se o instalador não conseguiu
+# (ou na sessão ao vivo ainda não terminou), cria aqui antes de baixar qualquer coisa.
+ensure_keyring() {
+    [[ -s /etc/pacman.d/gnupg/trustdb.gpg ]] && return 0
+    info "preparando as chaves do pacman (só na primeira vez, leva um minuto)"
+    pacman-key --init >/dev/null 2>&1 && pacman-key --populate >/dev/null 2>&1
+}
+
+install_one() {
+    local id=$1 user=$2 pkg unit group
+    load "$id" || return 1
+    step "$NAME"
+    info "$DESC"
+
+    if [[ $MULTILIB == 1 ]]; then
+        enable_multilib || return 1
+        pacman -Sy --noconfirm >/dev/null || { fail "falha ao sincronizar os repositórios"; return 1; }
+    fi
+    if [[ $NEEDS_BLACKARCH == 1 ]]; then
+        enable_blackarch || return 1
+    fi
+
+    local wanted=() ok=() missing=()
+    read -r -a wanted <<<"$PACKAGES"
+    if declare -F extra_packages >/dev/null; then
+        local extra
+        read -r -a extra <<<"$(extra_packages)"
+        wanted+=("${extra[@]}")
+    fi
+    for pkg in "${wanted[@]}"; do
+        if available "$pkg"; then ok+=("$pkg"); else missing+=("$pkg"); fi
+    done
+    [[ ${#missing[@]} -gt 0 ]] && warn "fora dos repositórios (pulados): ${missing[*]}"
+
+    if declare -F pre_install >/dev/null; then pre_install || return 1; fi
+
+    if [[ ${#ok[@]} -gt 0 ]]; then
+        # -Su junto com a instalação: evita atualização parcial do sistema
+        pacman -Su --needed --noconfirm "${ok[@]}" || { fail "o pacman não concluiu a instalação"; return 1; }
+    fi
+
+    for unit in $SERVICES; do
+        if systemctl enable --now "$unit" >/dev/null 2>&1; then info "serviço ligado: $unit"; else warn "não consegui ligar $unit"; fi
+    done
+    if [[ -n $user ]]; then
+        for group in $USER_GROUPS; do
+            if getent group "$group" >/dev/null; then
+                gpasswd -a "$user" "$group" >/dev/null && info "$user entrou no grupo $group (vale no próximo login)"
+            fi
+        done
+    fi
+
+    if declare -F post_install >/dev/null; then post_install "$user" || warn "o passo final do bundle falhou"; fi
+
+    mkdir -p "$STATE_DIR"
+    date -Iseconds >"$STATE_DIR/$id"
+    [[ -n $NOTE ]] && printf '\n%s\n' "$NOTE" | sed 's/^/    /'
+    return 0
+}
+
+cmd_install() {
+    [[ $# -gt 0 ]] || { echo "informe ao menos um bundle (veja: lain-bundle list)" >&2; exit 2; }
+    local id
+    for id in "$@"; do load "$id" || exit 1; done
+
+    if [[ $EUID -ne 0 ]]; then
+        exec sudo LAIN_BUNDLE_DIR="$BUNDLE_DIR" LAIN_STATE_DIR="$STATE_DIR" "$0" install "$@"
+    fi
+    local user=${SUDO_USER:-}
+    [[ $user == root ]] && user=""
+
+    ensure_keyring || warn "não consegui preparar as chaves do pacman"
+    step "sincronizando os repositórios"
+    pacman -Sy --noconfirm >/dev/null || { fail "sem acesso aos repositórios (internet?)"; exit 1; }
+
+    local failed=()
+    for id in "$@"; do
+        install_one "$id" "$user" || failed+=("$id")
+    done
+
+    echo
+    if [[ ${#failed[@]} -gt 0 ]]; then
+        fail "terminou com falhas em: ${failed[*]}"
+        exit 1
+    fi
+    step "tudo pronto"
+}
+
+case ${1:-} in
+    list) cmd_list ;;
+    info) cmd_info "${2:?informe o bundle}" ;;
+    install) shift; cmd_install "$@" ;;
+    *) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

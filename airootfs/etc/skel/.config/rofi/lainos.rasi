@@ -1,0 +1,112 @@
+/* ‡ LainOS — tema do rofi (lançador, menus e seletores)
+   Um clique já abre: nada de duplo clique. */
+
+* {
+    bg0:        #0d0f0df2;
+    bg1:        #131613ff;
+    bg2:        #1a1e1aff;
+    border:     #3a4235ff;
+    fg:         #e8eae4ff;
+    fg-dim:     #a3a89bff;
+    fg-mute:    #6c7266ff;
+    moss:       #8a9a5bff;
+    moss-deep:  #3d4a24ff;
+    red:        #b5564aff;
+
+    background-color: transparent;
+    text-color:       @fg;
+    margin:  0;
+    padding: 0;
+    spacing: 0;
+}
+
+window {
+    location: center;
+    width: 620px;
+    border: 1px;
+    border-color: @border;
+    border-radius: 16px;
+    background-color: @bg0;
+}
+
+mainbox {
+    padding: 14px;
+    spacing: 12px;
+    children: [ inputbar, message, listview ];
+}
+
+inputbar {
+    padding: 12px 14px;
+    spacing: 12px;
+    border-radius: 12px;
+    background-color: @bg1;
+    children: [ prompt, entry ];
+}
+
+prompt {
+    text-color: @moss;
+    font: "JetBrainsMono Nerd Font 11";
+    vertical-align: 0.5;
+}
+
+entry {
+    placeholder: "buscar…";
+    placeholder-color: @fg-mute;
+    cursor: text;
+    vertical-align: 0.5;
+}
+
+message {
+    padding: 8px 12px;
+    border-radius: 10px;
+    background-color: @bg1;
+}
+textbox {
+    text-color: @fg-dim;
+}
+
+listview {
+    lines: 8;
+    columns: 1;
+    fixed-height: false;
+    scrollbar: false;
+    spacing: 4px;
+    cycle: true;
+    dynamic: true;
+}
+
+element {
+    padding: 9px 12px;
+    spacing: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+}
+element normal.normal,
+element alternate.normal {
+    background-color: transparent;
+    text-color: @fg-dim;
+}
+element selected.normal,
+element selected.active {
+    background-color: @moss-deep;
+    text-color: @fg;
+}
+element normal.urgent,
+element alternate.urgent {
+    text-color: @red;
+}
+element normal.active,
+element alternate.active {
+    text-color: @moss;
+}
+
+element-icon {
+    size: 26px;
+    vertical-align: 0.5;
+    cursor: inherit;
+}
+element-text {
+    vertical-align: 0.5;
+    cursor: inherit;
+    text-color: inherit;
+}

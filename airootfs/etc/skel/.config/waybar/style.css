@@ -1,0 +1,164 @@
+/* ‡ LainOS — Waybar
+   Ilhas flutuantes de vidro escuro. Paleta em ~/.config/lainos/palette.css */
+
+@import url("../lainos/palette.css");
+
+* {
+    font-family: "Inter", "JetBrainsMono Nerd Font", sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+}
+
+window#waybar {
+    background: transparent;
+    color: @fg;
+}
+
+tooltip {
+    background: @bg1;
+    border: 1px solid @border;
+    border-radius: 10px;
+}
+tooltip label {
+    color: @fg;
+    padding: 2px 4px;
+}
+
+/* cada bloco é uma ilha */
+.modules-left,
+.modules-center,
+.modules-right {
+    background: alpha(@bg1, 0.78);
+    border: 1px solid alpha(@border_strong, 0.55);
+    border-radius: 14px;
+    padding: 0 6px;
+}
+
+#custom-menu {
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 18px;
+    color: @moss;
+    padding: 0 12px 0 10px;
+    transition: color 200ms ease;
+}
+#custom-menu:hover {
+    color: @moss_bright;
+}
+
+#workspaces {
+    padding: 0 4px;
+}
+#workspaces button {
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 11px;
+    color: @fg_mute;
+    padding: 0 7px;
+    margin: 7px 2px;
+    border-radius: 8px;
+    background: transparent;
+    transition: all 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+#workspaces button.empty {
+    color: alpha(@fg_mute, 0.55);
+}
+#workspaces button:hover {
+    background: alpha(@fg, 0.08);
+    color: @fg;
+    box-shadow: none;
+    text-shadow: none;
+}
+#workspaces button.active {
+    background: @moss;
+    color: @bg0;
+    padding: 0 12px;
+}
+#workspaces button.urgent {
+    background: @red;
+    color: @fg;
+}
+
+/* controles da janela ativa, para quem prefere o mouse */
+#custom-win-close,
+#custom-win-float,
+#custom-win-full {
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 11px;
+    color: @fg_mute;
+    padding: 0 7px;
+    transition: color 160ms ease;
+}
+#custom-win-close {
+    padding-left: 12px;
+}
+#custom-win-close:hover {
+    color: @red;
+}
+#custom-win-float:hover,
+#custom-win-full:hover {
+    color: @moss_bright;
+}
+#window {
+    color: @fg_dim;
+    padding: 0 12px 0 8px;
+}
+
+#clock {
+    font-family: "JetBrainsMono Nerd Font", monospace;
+    font-size: 13px;
+    letter-spacing: 1px;
+    padding: 0 16px;
+    color: @fg;
+}
+
+#tray,
+#custom-proxy,
+#custom-vpn,
+#pulseaudio,
+#battery,
+#custom-notifications,
+#custom-power {
+    font-family: "Inter", "JetBrainsMono Nerd Font", sans-serif;
+    padding: 0 10px;
+    color: @fg_dim;
+    transition: color 160ms ease;
+}
+#custom-proxy:hover,
+#custom-vpn:hover,
+#pulseaudio:hover,
+#custom-notifications:hover {
+    color: @fg;
+}
+#tray > .needs-attention {
+    -gtk-icon-effect: highlight;
+}
+
+#custom-proxy.on,
+#custom-vpn.on {
+    color: @moss_bright;
+}
+#custom-proxy.starting {
+    color: @amber;
+}
+#pulseaudio.muted {
+    color: @fg_mute;
+}
+#battery.warning {
+    color: @amber;
+}
+#battery.critical {
+    color: @red;
+}
+#battery.charging,
+#battery.plugged {
+    color: @moss_bright;
+}
+#custom-power {
+    color: @fg_mute;
+    padding-right: 12px;
+}
+#custom-power:hover {
+    color: @red;
+}

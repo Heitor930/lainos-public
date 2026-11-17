@@ -1,0 +1,30 @@
+{
+  "_comment": "Sites públicos usados pela busca de nome de usuário do Knights. Cada site diz como montar a URL do perfil e como reconhecer que a conta existe. Edite à vontade: o app lê este arquivo em tempo de execução. 'detect' pode ser 'status' (HTTP 200 = existe) ou 'absence' (a conta existe se o texto em 'absence' NÃO aparecer no corpo).",
+  "sites": [
+    { "name": "GitHub",        "url": "https://github.com/{u}",                     "detect": "status" },
+    { "name": "GitLab",        "url": "https://gitlab.com/{u}",                     "detect": "status" },
+    { "name": "Reddit",        "url": "https://www.reddit.com/user/{u}/about.json", "detect": "status" },
+    { "name": "Instagram",     "url": "https://www.instagram.com/{u}/",             "detect": "status" },
+    { "name": "X / Twitter",   "url": "https://nitter.net/{u}",                     "detect": "absence", "absence": "User not found" },
+    { "name": "TikTok",        "url": "https://www.tiktok.com/@{u}",                "detect": "absence", "absence": "Couldn't find this account" },
+    { "name": "YouTube",       "url": "https://www.youtube.com/@{u}",               "detect": "status" },
+    { "name": "Twitch",        "url": "https://www.twitch.tv/{u}",                  "detect": "status" },
+    { "name": "Steam",         "url": "https://steamcommunity.com/id/{u}",          "detect": "absence", "absence": "The specified profile could not be found" },
+    { "name": "Telegram",      "url": "https://t.me/{u}",                           "detect": "absence", "absence": "tgme_page_additional" },
+    { "name": "Mastodon.social","url": "https://mastodon.social/@{u}",              "detect": "status" },
+    { "name": "Keybase",       "url": "https://keybase.io/{u}",                     "detect": "status" },
+    { "name": "Pastebin",      "url": "https://pastebin.com/u/{u}",                 "detect": "status" },
+    { "name": "Dev.to",        "url": "https://dev.to/{u}",                         "detect": "status" },
+    { "name": "Medium",        "url": "https://medium.com/@{u}",                    "detect": "status" },
+    { "name": "HackerNews",    "url": "https://news.ycombinator.com/user?id={u}",   "detect": "absence", "absence": "No such user." },
+    { "name": "Last.fm",       "url": "https://www.last.fm/user/{u}",               "detect": "status" },
+    { "name": "SoundCloud",    "url": "https://soundcloud.com/{u}",                 "detect": "status" },
+    { "name": "Spotify",       "url": "https://open.spotify.com/user/{u}",          "detect": "status" },
+    { "name": "Patreon",       "url": "https://www.patreon.com/{u}",                "detect": "status" },
+    { "name": "itch.io",       "url": "https://{u}.itch.io/",                       "detect": "status" },
+    { "name": "Replit",        "url": "https://replit.com/@{u}",                    "detect": "status" },
+    { "name": "PyPI",          "url": "https://pypi.org/user/{u}/",                 "detect": "status" },
+    { "name": "npm",           "url": "https://www.npmjs.com/~{u}",                 "detect": "status" },
+    { "name": "Docker Hub",    "url": "https://hub.docker.com/u/{u}",               "detect": "status" }
+  ]
+}

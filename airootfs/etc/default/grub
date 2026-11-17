@@ -1,0 +1,20 @@
+# ‡ LainOS — carregador de boot do sistema instalado.
+# Depois de mudar algo aqui: sudo grub-mkconfig -o /boot/grub/grub.cfg
+GRUB_DEFAULT=0
+GRUB_TIMEOUT=3
+GRUB_TIMEOUT_STYLE=menu
+GRUB_DISTRIBUTOR="LainOS"
+GRUB_CMDLINE_LINUX_DEFAULT="quiet splash loglevel=3 nowatchdog"
+GRUB_CMDLINE_LINUX=""
+
+GRUB_PRELOAD_MODULES="part_gpt part_msdos"
+GRUB_TERMINAL_INPUT=console
+GRUB_GFXMODE=auto
+GRUB_GFXPAYLOAD_LINUX=keep
+GRUB_DISABLE_RECOVERY=true
+
+# Visual da distro
+GRUB_THEME="/usr/share/grub/themes/lainos/theme.txt"
+
+# Procura outros sistemas (Windows em outro disco, por exemplo) e põe no menu
+GRUB_DISABLE_OS_PROBER=false

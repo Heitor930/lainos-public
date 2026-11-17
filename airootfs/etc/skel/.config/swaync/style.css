@@ -1,0 +1,146 @@
+/* ‡ LainOS — notificações e central (swaync) */
+@import url("../lainos/palette.css");
+
+* {
+    font-family: "Inter", sans-serif;
+    font-size: 13px;
+}
+
+.notification-row {
+    outline: none;
+    background: transparent;
+}
+
+.notification {
+    background: alpha(@bg1, 0.94);
+    border: 1px solid @border_strong;
+    border-radius: 14px;
+    margin: 6px 12px;
+    padding: 0;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+.notification-content {
+    background: transparent;
+    padding: 12px 14px;
+    border-radius: 14px;
+}
+.notification.critical {
+    border-color: @red;
+}
+
+.summary {
+    color: @fg;
+    font-weight: 600;
+    font-size: 13px;
+}
+.body {
+    color: @fg_dim;
+    font-size: 12px;
+}
+.time {
+    color: @fg_mute;
+    font-size: 11px;
+}
+
+.notification-default-action,
+.notification-action {
+    background: transparent;
+    border: none;
+    color: @fg;
+    border-radius: 12px;
+}
+.notification-default-action:hover,
+.notification-action:hover {
+    background: alpha(@fg, 0.05);
+}
+.notification-action {
+    border-top: 1px solid @border;
+    border-radius: 0;
+    color: @moss_bright;
+}
+
+.close-button {
+    background: @bg3;
+    color: @fg_dim;
+    border-radius: 99px;
+    min-width: 22px;
+    min-height: 22px;
+    margin: 6px;
+    box-shadow: none;
+    border: none;
+}
+.close-button:hover {
+    background: @red;
+    color: @fg;
+}
+
+.control-center {
+    background: alpha(@bg1, 0.92);
+    border: 1px solid @border_strong;
+    border-radius: 18px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+}
+.control-center .notification {
+    box-shadow: none;
+    background: @bg2;
+    border-color: @border;
+}
+.control-center-list {
+    background: transparent;
+}
+.control-center-list-placeholder {
+    color: @fg_mute;
+}
+
+.widget-title {
+    margin: 14px 16px 6px 16px;
+    color: @fg;
+    font-size: 15px;
+    font-weight: 600;
+}
+.widget-title > button {
+    background: @bg3;
+    color: @fg_dim;
+    border: 1px solid @border;
+    border-radius: 10px;
+    padding: 4px 12px;
+    box-shadow: none;
+}
+.widget-title > button:hover {
+    background: @moss_deep;
+    color: @fg;
+}
+
+.widget-dnd {
+    margin: 6px 16px 10px 16px;
+    color: @fg_dim;
+}
+.widget-dnd > switch {
+    background: @bg3;
+    border: 1px solid @border;
+    border-radius: 99px;
+}
+.widget-dnd > switch:checked {
+    background: @moss;
+}
+.widget-dnd > switch slider {
+    background: @fg;
+    border-radius: 99px;
+}
+
+.widget-mpris {
+    margin: 8px 12px;
+}
+.widget-mpris-player {
+    background: @bg2;
+    border: 1px solid @border;
+    border-radius: 14px;
+    padding: 10px;
+}
+.widget-mpris-title {
+    color: @fg;
+    font-weight: 600;
+}
+.widget-mpris-subtitle {
+    color: @fg_dim;
+}

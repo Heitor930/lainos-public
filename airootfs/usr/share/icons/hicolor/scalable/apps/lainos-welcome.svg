@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <title>LainOS Welcome</title>
+  <rect width="256" height="256" rx="56" fill="#0a0b0a"/>
+  <circle cx="128" cy="128" r="86" fill="none" stroke="#8a9a5b" stroke-width="10"/>
+  <g stroke="#e8eae4" stroke-linecap="round" fill="none">
+    <path d="M128 62 V194" stroke-width="12"/>
+    <path d="M84 92 H172" stroke-width="10"/>
+    <path d="M98 122 H158" stroke-width="10"/>
+  </g>
+  <g fill="#8a9a5b">
+    <circle cx="84" cy="92" r="7"/><circle cx="172" cy="92" r="7"/>
+    <circle cx="98" cy="122" r="6"/><circle cx="158" cy="122" r="6"/>
+  </g>
+</svg>

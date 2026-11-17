@@ -1,0 +1,5 @@
+[Desktop Entry]
+Name=LainOS (Hyprland)
+Comment=Área de trabalho LainOS
+Exec=lain-start-hyprland
+Type=Application

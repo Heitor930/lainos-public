@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# ‡ LainOS — captura de tela. Salva em Imagens/Capturas e copia.
+# Uso: lain-screenshot [region|full|window]
+set -u
+
+dir="$(xdg-user-dir PICTURES 2>/dev/null || echo "$HOME/Imagens")/Capturas"
+mkdir -p "$dir"
+file="$dir/captura-$(date +%Y%m%d-%H%M%S).png"
+
+case ${1:-region} in
+    region)
+        geometry=$(slurp -d -b 08090866 -c 8a9a5bff -w 1) || exit 0
+        grim -g "$geometry" "$file"
+        ;;
+    window)
+        geometry=$(hyprctl activewindow -j | jq -r 'select(.at != null) | "\(.at[0]),\(.at[1]) \(.size[0])x\(.size[1])"')
+        [[ -n $geometry ]] || exit 0
+        grim -g "$geometry" "$file"
+        ;;
+    full) grim "$file" ;;
+    *) echo "uso: lain-screenshot [region|full|window]" >&2; exit 2 ;;
+esac
+
+[[ -s $file ]] || exit 1
+wl-copy --type image/png <"$file"
+notify-send -a LainOS -i "$file" "Captura salva" "$(basename "$file") · também está na área de transferência" 2>/dev/null || true

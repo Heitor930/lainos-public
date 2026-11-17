@@ -1,0 +1,69 @@
+# ‡ LainOS — prompt (starship). Uma linha de contexto, uma de comando.
+add_newline = true
+command_timeout = 800
+
+format = """
+$username$hostname$directory$git_branch$git_status$python$nodejs$rust$golang$docker_context$cmd_duration
+$character"""
+
+[character]
+success_symbol = "[❯](bold #8a9a5b)"
+error_symbol = "[❯](bold #b5564a)"
+vimcmd_symbol = "[❮](bold #8a9a5b)"
+
+[username]
+show_always = false
+style_user = "#a3a89b"
+style_root = "bold #b5564a"
+format = "[$user]($style) "
+
+[hostname]
+ssh_only = true
+style = "#6c7266"
+format = "[@$hostname]($style) "
+
+[directory]
+style = "bold #e8eae4"
+truncation_length = 3
+truncate_to_repo = true
+read_only = " ro"
+read_only_style = "#b5564a"
+
+[git_branch]
+symbol = ""
+style = "#8a9a5b"
+format = "[$branch]($style) "
+
+[git_status]
+style = "#c9a24a"
+format = "([$all_status$ahead_behind]($style) )"
+
+[cmd_duration]
+min_time = 3000
+style = "#6c7266"
+format = "[$duration]($style)"
+
+[python]
+symbol = "py "
+style = "#6c7266"
+format = "[$symbol$version( $virtualenv)]($style) "
+
+[nodejs]
+symbol = "node "
+style = "#6c7266"
+format = "[$symbol$version]($style) "
+
+[rust]
+symbol = "rs "
+style = "#6c7266"
+format = "[$symbol$version]($style) "
+
+[golang]
+symbol = "go "
+style = "#6c7266"
+format = "[$symbol$version]($style) "
+
+[docker_context]
+symbol = "docker "
+style = "#6c7266"
+format = "[$symbol$context]($style) "

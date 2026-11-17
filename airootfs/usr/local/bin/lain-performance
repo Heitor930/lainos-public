@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# ‡ LainOS — modo leve: desliga blur, sombras e animações de uma vez.
+# Uso: lain-performance [on|off|toggle|status] [--persist] [--quiet]
+set -u
+
+state="${XDG_RUNTIME_DIR:-/tmp}/lainos-performance"
+conf="$HOME/.config/lainos/style.conf"
+action=${1:-toggle}
+persist=0 quiet=0
+for arg in "$@"; do
+    [[ $arg == --persist ]] && persist=1
+    [[ $arg == --quiet ]] && quiet=1
+done
+
+say() { [[ $quiet == 1 ]] || notify-send -a LainOS -i lainos "$1" "${2:-}" 2>/dev/null || true; }
+
+save() {
+    mkdir -p "$(dirname "$conf")"
+    touch "$conf"
+    if grep -q '^PERFORMANCE=' "$conf"; then
+        sed -i "s/^PERFORMANCE=.*/PERFORMANCE=\"$1\"/" "$conf"
+    else
+        echo "PERFORMANCE=\"$1\"" >>"$conf"
+    fi
+}
+
+turn_on() {
+    hyprctl --batch "keyword animations:enabled 0; keyword decoration:blur:enabled 0; keyword decoration:shadow:enabled 0; keyword decoration:dim_inactive 0; keyword decoration:inactive_opacity 1" >/dev/null 2>&1
+    touch "$state"
+    [[ $persist == 1 ]] && save 1
+    say "Modo leve ligado" "Blur, sombras e animações desligados."
+}
+
+turn_off() {
+    rm -f "$state"
+    # sempre limpa a preferência salva: senão a recarga abaixo religaria o modo leve
+    grep -qs '^PERFORMANCE="1"' "$conf" && save ""
+    hyprctl reload >/dev/null 2>&1
+    say "Modo leve desligado" "Visual completo de volta."
+}
+
+case $action in
+    on) turn_on ;;
+    off) turn_off ;;
+    toggle) if [[ -e $state ]]; then turn_off; else turn_on; fi ;;
+    status) if [[ -e $state ]]; then echo on; else echo off; fi ;;
+    *) echo "uso: lain-performance [on|off|toggle|status] [--persist] [--quiet]" >&2; exit 2 ;;
+esac

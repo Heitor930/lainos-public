@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Navi Ghost (Firefox + Tor)
+Comment=Firefox endurecido que navega só pela rede Tor
+Exec=navi-ghost %u
+Icon=navi-ghost
+Terminal=false
+Categories=Network;WebBrowser;Security;
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;
+Keywords=tor;anonimo;privacidade;navegador;
+StartupNotify=true

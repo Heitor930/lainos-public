@@ -1,0 +1,5 @@
+#!/bin/sh
+# ‡ LainOS — instalador de um clique (só na versão ao vivo).
+# Mostra o disco, avisa que ele será apagado inteiro e instala sem mais perguntas.
+export PYTHONPATH="/usr/lib/lainos${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m installer "$@"

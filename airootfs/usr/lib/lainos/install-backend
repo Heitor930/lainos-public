@@ -1,0 +1,426 @@
+#!/usr/bin/env bash
+# ‡ LainOS — motor do instalador.
+#
+# Apaga UM disco inteiro e instala o sistema nele, sem perguntas. Quem chama é
+# o instalador gráfico (lain-install), depois que a pessoa confirmou o disco.
+# Usuário, senha, teclado e fuso NÃO são definidos aqui: isso acontece no
+# primeiro início do sistema instalado (assistente "primeiro início").
+#
+# Uso (root):
+#   install-backend --disk /dev/sdX --confirm APAGAR
+#
+# Saída padrão, uma linha por evento, para a interface acompanhar:
+#   @@ <0-100> <mensagem>     progresso
+#   !! <mensagem>             erro fatal (o código de saída é 1)
+# O registro completo fica em /var/log/lainos-install.log.
+#
+# Layout criado (GPT, serve para máquinas UEFI e BIOS):
+#   1) 1 MiB    partição de boot da BIOS
+#   2) 512 MiB  partição EFI (FAT32)
+#   3) o resto  sistema (ext4)
+# A memória de troca é feita com zram, então não existe partição de swap.
+set -Eeuo pipefail
+export LC_ALL=C LANG=C
+PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
+
+DISK=""
+CONFIRM=""
+SOURCE=""
+TARGET="/run/lainos/target"
+LOG="${LAIN_INSTALL_LOG:-/var/log/lainos-install.log}"
+MIN_BYTES=$((12 * 1024 * 1024 * 1024))
+SKIP_CHROOT=0     # só para testes: não roda mkinitcpio/grub dentro do alvo
+ALLOW_LOOP=0      # só para testes: aceita um disco de imagem (loop)
+SOURCE_MOUNTED=0
+PARTS=()
+EFI_PART=""
+ROOT_PART=""
+
+usage() {
+    sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+}
+
+while (($#)); do
+    case $1 in
+        --disk)        DISK=${2:-}; shift 2 ;;
+        --confirm)     CONFIRM=${2:-}; shift 2 ;;
+        --source)      SOURCE=${2:-}; shift 2 ;;
+        --target)      TARGET=${2:-}; shift 2 ;;
+        --min-bytes)   MIN_BYTES=${2:-}; shift 2 ;;
+        --skip-chroot) SKIP_CHROOT=1; shift ;;
+        --allow-loop)  ALLOW_LOOP=1; shift ;;
+        -h | --help)   usage; exit 0 ;;
+        *)             printf '!! Opção desconhecida: %s\n' "$1"; exit 2 ;;
+    esac
+done
+
+mkdir -p "$(dirname "$LOG")" 2>/dev/null || true
+: >>"$LOG" 2>/dev/null || LOG=/dev/null
+
+note() { printf '[%s] %s\n' "$(date +%T)" "$*" >>"$LOG"; }
+say()  { printf '@@ %s %s\n' "$1" "$2"; note "== $1% $2"; }
+die()  { printf '!! %s\n' "$*"; note "ERRO: $*"; exit 1; }
+run()  { note "+ $*"; "$@" >>"$LOG" 2>&1; }
+
+cleanup() {
+    local code=$?
+    trap - ERR EXIT
+    sync 2>/dev/null || true
+    if mountpoint -q "$TARGET" 2>/dev/null; then
+        umount -R "$TARGET" >>"$LOG" 2>&1 || umount -Rl "$TARGET" >>"$LOG" 2>&1 || true
+    fi
+    if ((SOURCE_MOUNTED)); then
+        umount "$SOURCE" >>"$LOG" 2>&1 || true
+    fi
+    exit "$code"
+}
+trap cleanup EXIT
+trap 'die "Falha inesperada na linha $LINENO. Detalhes em $LOG."' ERR
+
+# ----------------------------------------------------------------------
+# Verificações
+# ----------------------------------------------------------------------
+check_requirements() {
+    ((EUID == 0)) || die "O instalador precisa rodar como root."
+    [[ $CONFIRM == APAGAR ]] || die "Confirmação ausente. Nada foi alterado."
+    [[ -n $DISK ]] || die "Nenhum disco informado."
+    local tool
+    for tool in lsblk sfdisk wipefs mkfs.fat mkfs.ext4 rsync blkid blockdev findmnt; do
+        command -v "$tool" >/dev/null 2>&1 || die "Ferramenta ausente na ISO: $tool."
+    done
+    if ((!SKIP_CHROOT)); then
+        command -v arch-chroot >/dev/null 2>&1 || die "Ferramenta ausente na ISO: arch-chroot."
+    fi
+}
+
+check_disk() {
+    [[ -b $DISK ]] || die "O disco $DISK não existe."
+    local type size live_mount live_src live_disk
+    type=$(lsblk -dno TYPE "$DISK" 2>/dev/null | head -n1)
+    if [[ $type != disk ]] && ! { ((ALLOW_LOOP)) && [[ $type == loop ]]; }; then
+        die "$DISK não é um disco inteiro."
+    fi
+    size=$(blockdev --getsize64 "$DISK")
+    if ((size < MIN_BYTES)); then
+        die "O disco é pequeno demais: precisa de pelo menos $((MIN_BYTES / 1024 / 1024 / 1024)) GB."
+    fi
+    if [[ $(blockdev --getro "$DISK") == 1 ]]; then
+        die "O disco está protegido contra gravação."
+    fi
+    # Nunca apaga a própria mídia de instalação.
+    if lsblk -no FSTYPE "$DISK" 2>/dev/null | grep -qx iso9660; then
+        die "Este é o pendrive de instalação. Escolha o disco do computador."
+    fi
+    for live_mount in /run/archiso/bootmnt /run/archiso/img_dev; do
+        live_src=$(findmnt -no SOURCE "$live_mount" 2>/dev/null || true)
+        [[ -n $live_src && -b $live_src ]] || continue
+        # sobe pela árvore de dispositivos até o disco (partição, LVM, mapeamento...)
+        while read -r live_disk; do
+            [[ -n $live_disk ]] || continue
+            if [[ $(readlink -f "$live_disk") == "$(readlink -f "$DISK")" ]]; then
+                die "Este é o pendrive de instalação. Escolha o disco do computador."
+            fi
+        done < <(lsblk -lnspo NAME "$live_src" 2>/dev/null)
+    done
+}
+
+# Onde está o sistema que vai ser copiado: a imagem original da ISO, montada
+# só para leitura. Ela não carrega nada da sessão ao vivo (nem o usuário
+# temporário), então o disco recebe um sistema limpo.
+find_source() {
+    if [[ -n $SOURCE ]]; then
+        [[ -d $SOURCE/usr ]] || die "Origem inválida: $SOURCE."
+        return
+    fi
+    if [[ -d /run/archiso/airootfs/usr ]]; then
+        SOURCE=/run/archiso/airootfs
+        return
+    fi
+    local image=""
+    for candidate in /run/archiso/bootmnt/*/x86_64/airootfs.sfs \
+        /run/archiso/copytoram/airootfs.sfs \
+        /run/archiso/bootmnt/*/x86_64/airootfs.erofs \
+        /run/archiso/copytoram/airootfs.erofs; do
+        if [[ -r $candidate ]]; then image=$candidate; break; fi
+    done
+    [[ -n $image ]] || die "Não encontrei a imagem do sistema na mídia de instalação."
+    SOURCE=/run/lainos/source
+    mkdir -p "$SOURCE"
+    run mount -o loop,ro "$image" "$SOURCE" || die "Não consegui abrir a imagem do sistema."
+    SOURCE_MOUNTED=1
+}
+
+# ----------------------------------------------------------------------
+# Disco
+# ----------------------------------------------------------------------
+mounted_targets() {
+    local dev
+    while read -r dev; do
+        [[ -n $dev ]] || continue
+        findmnt -lno TARGET -S "$dev" 2>/dev/null || true
+    done < <(lsblk -lnpo NAME "$DISK")
+}
+
+release_disk() {
+    local dev mp
+    while read -r dev; do
+        [[ -n $dev ]] || continue
+        swapoff "$dev" >>"$LOG" 2>&1 || true
+    done < <(lsblk -lnpo NAME "$DISK")
+    # desmonta do ponto mais fundo para o mais raso
+    while read -r mp; do
+        [[ -n $mp ]] || continue
+        run umount -R "$mp" || run umount -Rl "$mp" || true
+    done < <(mounted_targets | sort -ru)
+    if [[ -n $(mounted_targets) ]]; then
+        die "O disco $DISK está em uso e não pôde ser liberado."
+    fi
+}
+
+partition_disk() {
+    local dev
+    # apaga assinaturas antigas (sistemas de arquivos, RAID, LVM) das partições e do disco
+    while read -r dev; do
+        [[ -n $dev ]] || continue
+        wipefs -af "$dev" >>"$LOG" 2>&1 || true
+    done < <(lsblk -lnpo NAME "$DISK" | tac)
+    run dd if=/dev/zero of="$DISK" bs=1M count=4 conv=fsync status=none || true
+
+    note "+ sfdisk $DISK (gpt: bios 1MiB, efi 512MiB, raiz)"
+    sfdisk --wipe always --wipe-partitions always "$DISK" >>"$LOG" 2>&1 <<'TABLE' || die "Não consegui particionar o disco."
+label: gpt
+
+size=1MiB, type=21686148-6449-6E6F-744E-656564454649, name="lain-bios"
+size=512MiB, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, name="lain-efi"
+type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name="lain-root"
+TABLE
+
+    partprobe "$DISK" >>"$LOG" 2>&1 || blockdev --rereadpt "$DISK" >>"$LOG" 2>&1 || true
+    udevadm settle --timeout=15 >>"$LOG" 2>&1 || true
+
+    local attempt
+    for attempt in $(seq 1 75); do
+        mapfile -t PARTS < <(lsblk -lnpo NAME,TYPE "$DISK" | awk '$2 == "part" {print $1}')
+        if ((${#PARTS[@]} == 3)) && [[ -b ${PARTS[1]} && -b ${PARTS[2]} ]]; then
+            break
+        fi
+        sleep 0.2
+    done
+    ((${#PARTS[@]} == 3)) || die "As partições novas não apareceram (tentativa $attempt)."
+    EFI_PART=${PARTS[1]}
+    ROOT_PART=${PARTS[2]}
+    note "partições: bios=${PARTS[0]} efi=$EFI_PART raiz=$ROOT_PART"
+}
+
+format_and_mount() {
+    run mkfs.fat -F 32 -n LAINEFI "$EFI_PART" || die "Não consegui formatar a partição EFI."
+    run mkfs.ext4 -F -q -L lainos "$ROOT_PART" || die "Não consegui formatar a partição do sistema."
+    if mountpoint -q "$TARGET" 2>/dev/null; then
+        run umount -R "$TARGET" || die "O ponto de montagem $TARGET está ocupado."
+    fi
+    mkdir -p "$TARGET"
+    run mount "$ROOT_PART" "$TARGET" || die "Não consegui montar o disco novo."
+}
+
+# ----------------------------------------------------------------------
+# Cópia do sistema
+# ----------------------------------------------------------------------
+copy_system() {
+    local line pct last=-1 rc
+    note "+ rsync $SOURCE/ -> $TARGET/"
+    if rsync -aHAX --numeric-ids --no-inc-recursive --info=progress2 \
+        "$SOURCE"/ "$TARGET"/ 2>>"$LOG" |
+        stdbuf -oL tr '\r' '\n' |
+        while read -r line; do
+            if [[ $line =~ ([0-9]+)% ]]; then
+                pct=${BASH_REMATCH[1]}
+                if ((pct != last)); then
+                    last=$pct
+                    say $((8 + pct * 60 / 100)) "Copiando o sistema para o disco (${pct}%)"
+                fi
+            fi
+        done; then
+        rc=0
+    else
+        rc=$?
+    fi
+    # 24 = arquivos que sumiram durante a cópia; não acontece numa origem só-leitura, mas é inofensivo
+    if ((rc != 0 && rc != 24)); then
+        die "A cópia do sistema falhou (rsync $rc). O disco pode estar com defeito."
+    fi
+    [[ -d $TARGET/usr && -d $TARGET/etc ]] || die "A cópia terminou incompleta."
+}
+
+# ----------------------------------------------------------------------
+# Ajustes do sistema instalado
+# ----------------------------------------------------------------------
+write_fstab() {
+    local root_uuid efi_uuid
+    root_uuid=$(blkid -s UUID -o value "$ROOT_PART")
+    efi_uuid=$(blkid -s UUID -o value "$EFI_PART")
+    [[ -n $root_uuid && -n $efi_uuid ]] || die "Não consegui ler os identificadores das partições."
+    cat >"$TARGET/etc/fstab" <<FSTAB
+# ‡ LainOS — partições montadas na inicialização (gerado pelo instalador).
+# <dispositivo>                              <ponto>     <tipo>  <opções>                 <dump> <fsck>
+UUID=$root_uuid  /           ext4    rw,noatime               0      1
+UUID=$efi_uuid                             /boot/efi   vfat    rw,noatime,umask=0077    0      2
+FSTAB
+}
+
+prepare_target() {
+    local dir base found=0 hooks
+
+    mkdir -p "$TARGET/boot/efi"
+    if ! run mount -o umask=0077 "$EFI_PART" "$TARGET/boot/efi"; then
+        # no modo de teste o kernel do ambiente pode não ter suporte a FAT
+        ((SKIP_CHROOT)) || die "Não consegui montar a partição EFI."
+        note "modo de teste: partição EFI não montada"
+    fi
+    write_fstab
+
+    # A ISO guarda o kernel fora da imagem do sistema; ele volta para /boot a
+    # partir da cópia que todo pacote de kernel deixa em /usr/lib/modules.
+    for dir in "$TARGET"/usr/lib/modules/*/; do
+        [[ -f ${dir}vmlinuz && -f ${dir}pkgbase ]] || continue
+        base=$(<"${dir}pkgbase")
+        install -Dm644 "${dir}vmlinuz" "$TARGET/boot/vmlinuz-$base"
+        found=1
+        note "kernel: /boot/vmlinuz-$base"
+    done
+    if ((!found && !SKIP_CHROOT)); then
+        die "Não encontrei o kernel na imagem do sistema."
+    fi
+
+    # Sai a configuração de initramfs da ISO ao vivo, entra a de um sistema instalado.
+    rm -f "$TARGET/etc/mkinitcpio.conf.d/archiso.conf"
+    hooks="base udev autodetect microcode modconf kms keyboard keymap block filesystems fsck"
+    if [[ -x $TARGET/usr/bin/plymouth ]]; then
+        hooks="base udev plymouth autodetect microcode modconf kms keyboard keymap block filesystems fsck"
+    fi
+    mkdir -p "$TARGET/etc/mkinitcpio.conf.d"
+    cat >"$TARGET/etc/mkinitcpio.conf.d/lainos.conf" <<CONF
+# ‡ LainOS — initramfs do sistema instalado (gerado pelo instalador).
+HOOKS=($hooks)
+CONF
+
+    # Identidade própria desta instalação.
+    if command -v systemd-machine-id-setup >/dev/null 2>&1; then
+        rm -f "$TARGET/etc/machine-id"
+        run systemd-machine-id-setup --root="$TARGET" || true
+    fi
+    # O assistente do primeiro início é nosso; o do systemd fica desligado.
+    mkdir -p "$TARGET/etc/systemd/system"
+    ln -sfn /dev/null "$TARGET/etc/systemd/system/systemd-firstboot.service"
+
+    # A conta root fica travada: quem administra é o usuário criado no primeiro início (sudo).
+    if [[ -f $TARGET/etc/shadow ]]; then
+        sed -i -E 's|^root:[^:]*:|root:!:|' "$TARGET/etc/shadow"
+    fi
+
+    # Marca que faz a tela de login abrir o assistente de primeiro início.
+    install -d -m 0755 "$TARGET/var/lib/lainos"
+    : >"$TARGET/var/lib/lainos/firstboot"
+
+    # Registro da instalação junto do sistema, para consulta futura.
+    install -d -m 0755 "$TARGET/var/log"
+    cp -f "$LOG" "$TARGET/var/log/lainos-install.log" 2>/dev/null || true
+}
+
+in_target() {
+    note "+ [no disco] $*"
+    arch-chroot "$TARGET" "$@" >>"$LOG" 2>&1
+}
+
+build_initramfs() {
+    in_target mkinitcpio -P || die "Não consegui gerar a initramfs do sistema instalado."
+    compgen -G "$TARGET/boot/initramfs-*.img" >/dev/null || die "A initramfs não foi criada."
+}
+
+install_bootloader() {
+    local ok=0
+    if in_target grub-install --target=i386-pc --recheck "$DISK"; then
+        ok=1
+    else
+        note "aviso: o GRUB para BIOS não foi instalado"
+    fi
+    # Caminho padrão da UEFI (EFI/BOOT/BOOTX64.EFI): funciona mesmo sem gravar na NVRAM.
+    if in_target grub-install --target=x86_64-efi --efi-directory=/boot/efi \
+        --bootloader-id=LainOS --removable --recheck; then
+        ok=1
+    else
+        note "aviso: o GRUB para UEFI não foi instalado"
+    fi
+    if [[ -d /sys/firmware/efi/efivars ]]; then
+        in_target grub-install --target=x86_64-efi --efi-directory=/boot/efi \
+            --bootloader-id=LainOS --recheck ||
+            note "aviso: a entrada de boot não foi gravada na NVRAM (o caminho padrão continua valendo)"
+    fi
+    ((ok)) || die "Não consegui instalar o carregador de boot (GRUB)."
+
+    if ! in_target timeout 240 grub-mkconfig -o /boot/grub/grub.cfg; then
+        # A busca por outros sistemas às vezes trava; sem ela o menu sai do mesmo jeito.
+        note "aviso: grub-mkconfig falhou; tentando de novo sem procurar outros sistemas"
+        if [[ -f $TARGET/etc/default/grub ]]; then
+            sed -i 's/^GRUB_DISABLE_OS_PROBER=.*/GRUB_DISABLE_OS_PROBER=true/' "$TARGET/etc/default/grub"
+        fi
+        in_target timeout 240 grub-mkconfig -o /boot/grub/grub.cfg ||
+            die "Não consegui criar o menu de inicialização."
+    fi
+    [[ -s $TARGET/boot/grub/grub.cfg ]] || die "O menu de inicialização saiu vazio."
+}
+
+init_keyring() {
+    # Chaves do pacman próprias desta instalação. Se falhar aqui, o lain-update
+    # refaz no primeiro uso; por isso não é fatal.
+    if in_target pacman-key --init && in_target pacman-key --populate; then
+        note "chaveiro do pacman pronto"
+    else
+        note "aviso: chaveiro do pacman não inicializado (o lain-update cuida disso depois)"
+    fi
+    in_target gpgconf --homedir /etc/pacman.d/gnupg --kill all || true
+}
+
+finish() {
+    cp -f "$LOG" "$TARGET/var/log/lainos-install.log" 2>/dev/null || true
+    sync
+    run umount -R "$TARGET" || run umount -Rl "$TARGET" || true
+}
+
+# ----------------------------------------------------------------------
+main() {
+    note "===== LainOS: instalação em $DISK ====="
+    check_requirements
+    check_disk
+    find_source
+    note "origem: $SOURCE"
+
+    say 1 "Preparando o disco"
+    release_disk
+    say 3 "Apagando e particionando o disco"
+    partition_disk
+    say 6 "Formatando"
+    format_and_mount
+
+    say 8 "Copiando o sistema para o disco"
+    copy_system
+
+    say 70 "Ajustando o sistema instalado"
+    prepare_target
+
+    if ((SKIP_CHROOT)); then
+        note "modo de teste: etapas dentro do alvo puladas"
+    else
+        say 74 "Preparando a inicialização (initramfs)"
+        build_initramfs
+        say 86 "Instalando o carregador de boot"
+        install_bootloader
+        say 94 "Preparando o gerenciador de pacotes"
+        init_keyring
+    fi
+
+    say 98 "Finalizando"
+    finish
+    say 100 "Instalação concluída"
+}
+
+main
