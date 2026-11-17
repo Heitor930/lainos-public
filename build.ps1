@@ -1,4 +1,4 @@
-# ‡ LainOS — monta a ISO no Windows, usando o Docker Desktop.
+﻿# ‡ LainOS — monta a ISO no Windows, usando o Docker Desktop.
 #
 #   .\build.ps1          monta a ISO em .\out
 #   .\build.ps1 -Fast    compressão leve (build bem mais rápido, ISO maior)
