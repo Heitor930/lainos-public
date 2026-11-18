@@ -337,8 +337,9 @@ def test_live(iso: Path, disk: Path, out: Path) -> int:
                 log(tail(vm.text(), 40))
                 vm.screenshot("falha-no-boot")
                 return report.write()
-            reached = bool(re.search(r"Reached target.*Graphical Interface", vm.text()))
-            report.check(reached, "o sistema chegou ao modo gráfico (graphical.target)")
+            # o getty (e o "login:") sobe antes do graphical.target terminar,
+            # então a conferência do modo gráfico é feita depois do login,
+            # perguntando ao systemd (e esperando até 2 min).
 
             # entra como o usuário temporário da sessão ao vivo (criado no boot,
             # então dá um tempo para o serviço que o cria terminar)
@@ -360,6 +361,10 @@ def test_live(iso: Path, disk: Path, out: Path) -> int:
                 vm.send("\r")
                 vm.wait_for(r"login: ", 30, vm.mark())
             report.check(code == 0 and LIVE_USER in output, "login do usuário temporário (wired / live)")
+            code, output = vm.shell(
+                "timeout 120 sh -c 'until systemctl is-active -q graphical.target; do sleep 2; done'"
+                " && systemctl is-active graphical.target", 150)
+            report.check(code == 0, "o sistema chegou ao modo gráfico (graphical.target)", tail(output, 2))
 
             vm.sleep(35)  # tempo para a área de trabalho terminar de abrir
             vm.screenshot("area-de-trabalho")
